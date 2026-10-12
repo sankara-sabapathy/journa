@@ -20,11 +20,11 @@ Journa is one private place for notes, tasks, checklists and a daily journal. It
 
 ## Positioning
 
-- **No account, no server.** Data never leaves the device except to backup locations the user picks.
+- **No account needed.** Everything works without signing in. Data never leaves the device except to backup locations the user picks.
 - **One place for four kinds of writing.** Notes, tasks, checklists and the daily journal live together, not in separate apps.
 - **Own your backups.** Backups are plain JSON (and Markdown export) files in the user's own drive folder, restorable anywhere.
 - **Fast and lightweight.** Opens instantly, small bundle, works on low-end phones.
-- **Free and open source.** MIT licensed, no paid tier.
+- **Free.** No paid tier; writing, import/export and backups stay free. The source is private (closed source, private repository).
 
 ## Operating Context
 
@@ -42,6 +42,7 @@ Journa is one private place for notes, tasks, checklists and a daily journal. It
 - Optional passphrase encryption of backups (WebCrypto).
 - **i18n from day 1:** English (default), Tamil, Hindi. All UI strings go through the i18n layer; dates and numbers use `Intl`. Tamil and Hindi translations need review by a native speaker.
 - **No analytics, no tracking, no third-party requests** (no CDN fonts or scripts). System fonts only, so Tamil and Devanagari render with the device's fonts.
+- **Optional sign-in is planned.** It must stay optional: every existing feature (writing, search, import/export, folder backups) keeps working signed out, and nothing is uploaded unless the user signs in and opts in. What sign-in enables (e.g. sync across devices) is undecided.
 - Undecided: cloud-API backup targets (Dropbox/Google Drive/OneDrive), hosting, attachments, reminders.
 
 ## Brand Commitments
@@ -55,7 +56,7 @@ None. No users, testimonials, benchmarks or press. Do not invent any.
 ## Product Principles
 
 1. **Never lose a word.** Saving is automatic and immediate; backups are visible and easy to verify.
-2. **Private by construction.** Every feature works without an account or network; nothing is sent anywhere the user didn't choose.
+2. **Private by construction.** Every core feature works without an account or network; sign-in, when it arrives, is opt-in; nothing is sent anywhere the user didn't choose.
 3. **Capture first.** The fastest path is from opening the app to writing; organizing is optional.
 4. **Light on the device.** Small, fast and readable on a cheap phone in any of the supported languages.
 

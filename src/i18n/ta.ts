@@ -156,7 +156,7 @@ export const ta: Messages = {
   'settings.theme.light': 'வெளிர்',
   'settings.theme.dark': 'இருள்',
   'settings.about': 'பற்றி',
-  'settings.aboutText': 'Journa அனைத்தையும் இந்தச் சாதனத்திலேயே வைக்கிறது. கணக்கு இல்லை, சேவையகம் இல்லை, கண்காணிப்பு இல்லை.',
+  'settings.aboutText': 'Journa இலவசம்; அனைத்தையும் இந்தச் சாதனத்திலேயே வைக்கிறது. கணக்கு தேவையில்லை, கண்காணிப்பு இல்லை.',
 
   'pwa.install': 'செயலியை நிறுவு',
   'pwa.installIOS': 'நிறுவ: Share தட்டி, பின் “Add to Home Screen” தேர்ந்தெடுக்கவும். நிறுவிய செயலிகள் iPhone-இல் தரவைப் பாதுகாப்பாக வைக்கும்.',

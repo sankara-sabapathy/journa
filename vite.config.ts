@@ -16,7 +16,7 @@ export default defineConfig({
       manifest: {
         name: 'Journa',
         short_name: 'Journa',
-        description: 'Private notes, tasks, lists and a daily journal. Works offline. No account.',
+        description: 'Private notes, tasks, lists and a daily journal. Works offline. Free, no account needed.',
         lang: 'en',
         start_url: '/',
         scope: '/',

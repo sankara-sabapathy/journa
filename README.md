@@ -1,6 +1,6 @@
 # Journa
 
-Private notes, tasks, checklists and a daily journal in one installable web app. Works fully offline. No account, no server, no tracking.
+Private notes, tasks, checklists and a daily journal in one installable web app. Works fully offline. Free, no account needed, no tracking. (Optional sign-in is planned; it will never be required.)
 
 - **Today**: write the day's journal entry; the month is drawn as a kolam, with each day you wrote looped into one line.
 - **Notes, tasks, lists**: Markdown notes with tags and pinning; tasks with due dates and priority; checklists.
@@ -36,4 +36,5 @@ English, Tamil and Hindi live in `src/i18n/`. The Tamil and Hindi strings were m
 
 ## License
 
-MIT
+Proprietary. Copyright (c) 2026 Sankara Sabapathy. All rights reserved. See [LICENSE](LICENSE).
+The app is free to use; the source code is private.

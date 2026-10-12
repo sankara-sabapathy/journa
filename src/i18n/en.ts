@@ -154,7 +154,7 @@ export const en = {
   'settings.theme.light': 'Light',
   'settings.theme.dark': 'Dark',
   'settings.about': 'About',
-  'settings.aboutText': 'Journa keeps everything on this device. No account, no server, no tracking.',
+  'settings.aboutText': 'Journa is free and keeps everything on this device. No account needed, no tracking.',
 
   'pwa.install': 'Install app',
   'pwa.installIOS': 'To install: tap Share, then “Add to Home Screen”. Installed apps keep their data safer on iPhone.',

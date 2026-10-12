@@ -47,6 +47,6 @@
     "vitest": "^5.0.4",
     "workbox-window": "^7.4.1"
   },
-  "license": "MIT",
+  "license": "UNLICENSED",
   "description": "Private, offline-first journal, notes, tasks and checklists PWA."
 }

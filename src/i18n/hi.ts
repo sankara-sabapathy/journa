@@ -156,7 +156,7 @@ export const hi: Messages = {
   'settings.theme.light': 'हल्का',
   'settings.theme.dark': 'गहरा',
   'settings.about': 'जानकारी',
-  'settings.aboutText': 'Journa सब कुछ इसी डिवाइस पर रखता है। कोई अकाउंट नहीं, कोई सर्वर नहीं, कोई ट्रैकिंग नहीं।',
+  'settings.aboutText': 'Journa मुफ़्त है और सब कुछ इसी डिवाइस पर रखता है। अकाउंट की ज़रूरत नहीं, कोई ट्रैकिंग नहीं।',
 
   'pwa.install': 'ऐप इंस्टॉल करें',
   'pwa.installIOS': 'इंस्टॉल करने के लिए: Share दबाएँ, फिर “Add to Home Screen”। iPhone पर इंस्टॉल किए ऐप डेटा ज़्यादा सुरक्षित रखते हैं।',
