@@ -1,0 +1,164 @@
+import { db, type JournaDB } from './db'
+import { toISODate } from './date'
+import type { ChecklistItem, Entry, EntryType } from './types'
+
+export type NewEntry = Partial<Omit<Entry, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>> & {
+  type: EntryType
+}
+
+const listeners = new Set<() => void>()
+
+/** Subscribe to any local write (used by the backup scheduler). */
+export function onChange(fn: () => void): () => void {
+  listeners.add(fn)
+  return () => listeners.delete(fn)
+}
+
+function changed() {
+  for (const fn of listeners) fn()
+}
+
+export function newId(): string {
+  return crypto.randomUUID()
+}
+
+export function makeEntry(input: NewEntry, now = Date.now()): Entry {
+  const entry: Entry = {
+    id: newId(),
+    title: '',
+    body: '',
+    tags: [],
+    pinned: 0,
+    ...input,
+    createdAt: now,
+    updatedAt: now,
+    deletedAt: 0,
+  }
+  if (entry.type === 'task' && entry.done === undefined) entry.done = false
+  if (entry.type === 'checklist' && !entry.items) entry.items = []
+  if (entry.type === 'journal' && !entry.date) entry.date = toISODate(new Date(now))
+  return entry
+}
+
+export function createRepo(database: JournaDB = db) {
+  return {
+    async create(input: NewEntry): Promise<Entry> {
+      const entry = makeEntry(input)
+      await database.entries.add(entry)
+      changed()
+      return entry
+    },
+
+    async get(id: string): Promise<Entry | undefined> {
+      return database.entries.get(id)
+    },
+
+    async update(id: string, patch: Partial<Omit<Entry, 'id' | 'createdAt'>>): Promise<void> {
+      await database.entries.update(id, { ...patch, updatedAt: Date.now() })
+      changed()
+    },
+
+    async trash(id: string): Promise<void> {
+      await database.entries.update(id, { deletedAt: Date.now(), updatedAt: Date.now() })
+      changed()
+    },
+
+    async restore(id: string): Promise<void> {
+      await database.entries.update(id, { deletedAt: 0, updatedAt: Date.now() })
+      changed()
+    },
+
+    /** Permanently removes everything in Trash. */
+    async emptyTrash(): Promise<number> {
+      const n = await database.entries.where('deletedAt').above(0).delete()
+      changed()
+      return n
+    },
+
+    async list(type?: EntryType): Promise<Entry[]> {
+      const rows = type
+        ? await database.entries.where('[type+deletedAt]').equals([type, 0]).toArray()
+        : await database.entries.where('deletedAt').equals(0).toArray()
+      return sortEntries(rows)
+    },
+
+    async listTrash(): Promise<Entry[]> {
+      const rows = await database.entries.where('deletedAt').above(0).toArray()
+      return rows.sort((a, b) => b.deletedAt - a.deletedAt)
+    },
+
+    async journalFor(date: string): Promise<Entry | undefined> {
+      return database.entries
+        .where('date')
+        .equals(date)
+        .filter((e) => e.type === 'journal' && e.deletedAt === 0)
+        .first()
+    },
+
+    /** Returns today's journal entry, creating an empty one if needed. */
+    async ensureJournal(date = toISODate()): Promise<Entry> {
+      return database.transaction('rw', database.entries, async () => {
+        const existing = await this.journalFor(date)
+        if (existing) return existing
+        const entry = makeEntry({ type: 'journal', date })
+        await database.entries.add(entry)
+        return entry
+      })
+    },
+
+    /** Dates (YYYY-MM-DD) that have a journal entry with text, within [from, to]. */
+    async writtenDays(from: string, to: string): Promise<Set<string>> {
+      const rows = await database.entries.where('date').between(from, to, true, true).toArray()
+      return new Set(
+        rows
+          .filter((e) => e.type === 'journal' && e.deletedAt === 0 && e.body.trim() !== '')
+          .map((e) => e.date!),
+      )
+    },
+
+    async search(query: string): Promise<Entry[]> {
+      const terms = query.toLocaleLowerCase().split(/\s+/).filter(Boolean)
+      if (terms.length === 0) return []
+      const rows = await database.entries.where('deletedAt').equals(0).toArray()
+      return sortEntries(rows.filter((e) => terms.every((t) => searchText(e).includes(t))))
+    },
+
+    async allTags(): Promise<string[]> {
+      const keys = await database.entries.orderBy('tags').uniqueKeys()
+      return keys.map(String).sort((a, b) => a.localeCompare(b))
+    },
+
+    /** Removes an entry the user created but never filled in (no trash, no backup noise). */
+    async discardIfEmpty(id: string): Promise<boolean> {
+      const e = await database.entries.get(id)
+      if (!e || e.type === 'journal') return false
+      if (e.title.trim() || e.body.trim() || e.tags.length || e.items?.length || e.due) return false
+      await database.entries.delete(id)
+      return true
+    },
+
+    async toggleTask(id: string): Promise<void> {
+      const e = await database.entries.get(id)
+      if (!e) return
+      await this.update(id, { done: !e.done })
+    },
+
+    async setItems(id: string, items: ChecklistItem[]): Promise<void> {
+      await this.update(id, { items })
+    },
+  }
+}
+
+export type Repo = ReturnType<typeof createRepo>
+
+export const repo = createRepo()
+
+function searchText(e: Entry): string {
+  const items = e.items?.map((i) => i.text).join(' ') ?? ''
+  return `${e.title} ${e.body} ${e.tags.join(' ')} ${items}`.toLocaleLowerCase()
+}
+
+/** Pinned first, then most recently updated. */
+export function sortEntries(rows: Entry[]): Entry[] {
+  return rows.sort((a, b) => b.pinned - a.pinned || b.updatedAt - a.updatedAt)
+}

@@ -1,0 +1,101 @@
+/* Journa design tokens — Kolam world. DESIGN.md documents these. */
+:root {
+  color-scheme: light;
+
+  /* world */
+  --kaavi: #8a3324; /* red-oxide floor: shell, primary actions */
+  --kaavi-deep: #6e2719; /* kolam band */
+  --kaavi-ink: #8a3324; /* kaavi used as text on the ground */
+  --rice: #fbf8f2; /* rice-flour line and on-kaavi text */
+  --turmeric: #e0a526; /* today, selection */
+  --leaf: #2f6b4f; /* done, success */
+  --sindoor: #b3261e; /* errors, destructive */
+  --sindoor-bg: #fbe9e7;
+  --turmeric-bg: #fff4d6;
+
+  /* neutrals, tinted from the limewash wall */
+  --ground: #f2f2ee;
+  --surface: #ffffff;
+  --surface-2: #e9e8e2;
+  --ink: #1e1a18;
+  --ink-2: #5f5751;
+  --rule: #d9d6ce;
+  --focus: #1f5fbf;
+
+  /* type: system stacks so Tamil and Devanagari use the device's fonts */
+  --font: system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans', 'Noto Sans Tamil', 'Noto Sans Devanagari',
+    'Nirmala UI', sans-serif;
+  --font-mono: ui-monospace, 'Cascadia Mono', 'SF Mono', Menlo, Consolas, monospace;
+  --t-xs: 0.75rem;
+  --t-sm: 0.875rem;
+  --t-md: 1rem;
+  --t-lg: 1.125rem;
+  --t-xl: 1.375rem;
+  --t-2xl: 1.75rem;
+  --lh: 1.55;
+
+  /* space (4px base) */
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 12px;
+  --s4: 16px;
+  --s5: 24px;
+  --s6: 32px;
+  --s7: 48px;
+
+  --r-sm: 6px;
+  --r-md: 12px;
+  --r-pill: 999px;
+  --shadow-float: 0 6px 18px rgb(30 26 24 / 0.22);
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --dur: 180ms;
+
+  --nav-h: 64px;
+  --rail-w: 220px;
+  --measure: 70ch;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --kaavi: #7a2c1f;
+    --kaavi-deep: #4f1d13;
+    --kaavi-ink: #f08a6e;
+    --rice: #f4ede2;
+    --turmeric: #e8b23a;
+    --leaf: #5fae86;
+    --sindoor: #ff8a80;
+    --sindoor-bg: #3a1714;
+    --turmeric-bg: #3a2c0c;
+    --ground: #181311;
+    --surface: #221b18;
+    --surface-2: #2c2420;
+    --ink: #efe8de;
+    --ink-2: #b5aaa0;
+    --rule: #3b322d;
+    --focus: #8ab4ff;
+    --shadow-float: 0 6px 18px rgb(0 0 0 / 0.5);
+  }
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --kaavi: #7a2c1f;
+  --kaavi-deep: #4f1d13;
+  --kaavi-ink: #f08a6e;
+  --rice: #f4ede2;
+  --turmeric: #e8b23a;
+  --leaf: #5fae86;
+  --sindoor: #ff8a80;
+  --sindoor-bg: #3a1714;
+  --turmeric-bg: #3a2c0c;
+  --ground: #181311;
+  --surface: #221b18;
+  --surface-2: #2c2420;
+  --ink: #efe8de;
+  --ink-2: #b5aaa0;
+  --rule: #3b322d;
+  --focus: #8ab4ff;
+  --shadow-float: 0 6px 18px rgb(0 0 0 / 0.5);
+}

@@ -1,0 +1,35 @@
+import { CloudAlert, CloudCheck, CloudOff, CloudUpload } from 'lucide-react'
+import { useSyncExternalStore } from 'react'
+import { href } from '../app/router'
+import { scheduler } from '../backup/scheduler'
+import { useI18n } from '../i18n'
+
+export function useBackupState() {
+  return useSyncExternalStore(scheduler.subscribe, scheduler.getState)
+}
+
+export function BackupChip() {
+  const { t, fmt } = useI18n()
+  const s = useBackupState()
+  let tone: 'ok' | 'attention' = 'ok'
+  let text: string
+  let Icon = CloudCheck
+  if (s.status === 'needs-permission' || s.lastError) {
+    tone = 'attention'
+    text = t('backup.chip.attention')
+    Icon = CloudAlert
+  } else if (s.status === 'ready' && s.lastBackupAt) {
+    text = s.dirty ? t('backup.chip.pending') : t('backup.chip.ok', { time: fmt.relative(s.lastBackupAt) })
+    Icon = s.dirty ? CloudUpload : CloudCheck
+  } else {
+    text = t('backup.chip.off')
+    Icon = CloudOff
+    tone = s.status === 'unavailable' || s.status === 'not-configured' ? 'attention' : 'ok'
+  }
+  return (
+    <a className="chip" data-tone={tone} href={href({ name: 'settings' })}>
+      <Icon size={16} aria-hidden />
+      {text}
+    </a>
+  )
+}

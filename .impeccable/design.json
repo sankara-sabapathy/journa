@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-12T22:30:00+05:30",
+  "title": "Design System: Journa",
+  "extensions": {
+    "colorMeta": {
+      "kaavi": { "role": "primary", "displayName": "Kaavi red-oxide", "canonical": "#8a3324" },
+      "turmeric": { "role": "secondary", "displayName": "Turmeric", "canonical": "#e0a526" },
+      "leaf": { "role": "tertiary", "displayName": "Leaf", "canonical": "#2f6b4f" },
+      "limewash-ground": { "role": "neutral", "displayName": "Limewash", "canonical": "#f2f2ee" }
+    },
+    "shadows": { "float": "0 6px 18px rgb(30 26 24 / 0.22)" },
+    "motion": { "ease-out": "cubic-bezier(0.16, 1, 0.3, 1)", "duration": "180ms", "kolam-draw": "900ms" },
+    "breakpoints": { "rail": "900px" },
+    "components": {
+      "button-primary": "<button style=\"background:#8a3324;color:#fbf8f2;border:0;border-radius:8px;height:40px;padding:0 14px;font:600 14px system-ui\">Choose backup folder</button>",
+      "panel": "<div style=\"background:#fff;border:1px solid #d9d6ce;border-radius:12px;padding:16px;font:16px system-ui;color:#1e1a18\">Pay electricity bill</div>",
+      "chip-attention": "<span style=\"background:#e0a526;color:#1e1a18;border-radius:999px;padding:6px 12px;font:600 12px system-ui\">Not backed up</span>"
+    },
+    "narrative": {
+      "northStar": "Drawn fresh every morning.",
+      "overview": "Kolam world on an Operate surface: standard controls, kaavi shell, one signature move (the month streak drawn as a kolam line).",
+      "keyCharacteristics": ["Kaavi shell", "Kolam streak", "coss ui re-themed", "System fonts for Tamil and Devanagari"]
+    }
+  }
+}
