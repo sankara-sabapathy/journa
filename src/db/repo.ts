@@ -41,10 +41,15 @@ export function makeEntry(input: NewEntry, now = Date.now()): Entry {
 }
 
 export function createRepo(database: JournaDB = db) {
+  async function touchOutbox(id: string, updatedAt: number): Promise<void> {
+    await database.outbox.put({ id, updatedAt })
+  }
+
   return {
     async create(input: NewEntry): Promise<Entry> {
       const entry = makeEntry(input)
       await database.entries.add(entry)
+      await touchOutbox(entry.id, entry.updatedAt)
       changed()
       return entry
     },
@@ -54,17 +59,23 @@ export function createRepo(database: JournaDB = db) {
     },
 
     async update(id: string, patch: Partial<Omit<Entry, 'id' | 'createdAt'>>): Promise<void> {
-      await database.entries.update(id, { ...patch, updatedAt: Date.now() })
+      const updatedAt = Date.now()
+      await database.entries.update(id, { ...patch, updatedAt })
+      await touchOutbox(id, updatedAt)
       changed()
     },
 
     async trash(id: string): Promise<void> {
-      await database.entries.update(id, { deletedAt: Date.now(), updatedAt: Date.now() })
+      const updatedAt = Date.now()
+      await database.entries.update(id, { deletedAt: updatedAt, updatedAt })
+      await touchOutbox(id, updatedAt)
       changed()
     },
 
     async restore(id: string): Promise<void> {
-      await database.entries.update(id, { deletedAt: 0, updatedAt: Date.now() })
+      const updatedAt = Date.now()
+      await database.entries.update(id, { deletedAt: 0, updatedAt })
+      await touchOutbox(id, updatedAt)
       changed()
     },
 
@@ -97,11 +108,15 @@ export function createRepo(database: JournaDB = db) {
 
     /** Returns today's journal entry, creating an empty one if needed. */
     async ensureJournal(date = toISODate()): Promise<Entry> {
-      return database.transaction('rw', database.entries, async () => {
+      return database.transaction('rw', database.entries, database.outbox, async () => {
         const existing = await this.journalFor(date)
         if (existing) return existing
         const entry = makeEntry({ type: 'journal', date })
+        // Deterministic id lets two offline devices create the same daily entry and merge it later.
+        entry.id = `journal-${date}`
         await database.entries.add(entry)
+        await touchOutbox(entry.id, entry.updatedAt)
+        changed()
         return entry
       })
     },
@@ -134,6 +149,7 @@ export function createRepo(database: JournaDB = db) {
       if (!e || e.type === 'journal') return false
       if (e.title.trim() || e.body.trim() || e.tags.length || e.items?.length || e.due) return false
       await database.entries.delete(id)
+      changed()
       return true
     },
 

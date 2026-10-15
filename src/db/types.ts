@@ -38,3 +38,10 @@ export interface Setting<T = unknown> {
   key: string
   value: T
 }
+
+export interface OutboxEntry {
+  /** Entry id that changed locally and still needs to be pushed to cloud sync. */
+  id: string
+  /** Local `updatedAt` (or `deletedAt` for a trashed entry) used for LWW ordering. */
+  updatedAt: number
+}

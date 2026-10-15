@@ -8,7 +8,7 @@ web
 
 ## Stack
 
-Vite + React + TypeScript, installable PWA (vite-plugin-pwa / Workbox). Local data in IndexedDB via Dexie. No backend. Hosting undecided (local repo only for now).
+Vite + React + TypeScript, installable PWA (vite-plugin-pwa / Workbox). Local data in IndexedDB via Dexie. Optional AWS CDK serverless backend (Cognito, HTTP API, Lambda, DynamoDB, S3) for opt-in sign-in and multi-device sync. Deployed as two stacks: frontend hosting and backend. No backend required for core use.
 
 ## Users
 
@@ -31,6 +31,7 @@ Journa is one private place for notes, tasks, checklists and a daily journal. It
 - Installed PWA on a phone for quick daily capture; a desktop browser (Chrome/Edge) for longer writing and for setting up automatic folder backups.
 - Often offline or on a flaky connection; the app must never depend on the network.
 - Backups land in a folder that a desktop sync client (Google Drive, OneDrive, Dropbox) uploads. Restore = import a backup file.
+- Signed-in cloud sync is end-to-end encrypted by default and works only after the user opts in; the app remains fully offline-capable otherwise.
 
 ## Capabilities and Constraints
 
@@ -42,8 +43,8 @@ Journa is one private place for notes, tasks, checklists and a daily journal. It
 - Optional passphrase encryption of backups (WebCrypto).
 - **i18n from day 1:** English (default), Tamil, Hindi. All UI strings go through the i18n layer; dates and numbers use `Intl`. Tamil and Hindi translations need review by a native speaker.
 - **No analytics, no tracking, no third-party requests** (no CDN fonts or scripts). System fonts only, so Tamil and Devanagari render with the device's fonts.
-- **Optional sign-in is planned.** It must stay optional: every existing feature (writing, search, import/export, folder backups) keeps working signed out, and nothing is uploaded unless the user signs in and opts in. What sign-in enables (e.g. sync across devices) is undecided.
-- Undecided: cloud-API backup targets (Dropbox/Google Drive/OneDrive), hosting, attachments, reminders.
+- **Optional, opt-in sign-in.** It must stay optional: every existing feature (writing, search, import/export, folder backups) keeps working signed out, and nothing is uploaded unless the user signs in and opts in. Sign-in enables passkey or email-OTP sign-in, cross-device sync, and optional cloud backups. Cloud data is end-to-end encrypted with the user's passphrase by default; Journa cannot read, decrypt, or recover user content. Before syncing conflicting edits made on different devices, prompt with a diff and ask which version to keep (or save the other for later).
+- Undecided: cloud-API backup targets (Dropbox/Google Drive/OneDrive), attachments, reminders. Hosting is two separate CDK stacks: frontend hosting and backend.
 
 ## Brand Commitments
 
@@ -56,7 +57,7 @@ None. No users, testimonials, benchmarks or press. Do not invent any.
 ## Product Principles
 
 1. **Never lose a word.** Saving is automatic and immediate; backups are visible and easy to verify.
-2. **Private by construction.** Every core feature works without an account or network; sign-in, when it arrives, is opt-in; nothing is sent anywhere the user didn't choose.
+2. **Private by construction.** Every core feature works without an account or network; sign-in, when it arrives, is opt-in; nothing is sent anywhere the user didn't choose; signed-in cloud data is encrypted on the device and Journa cannot read it.
 3. **Capture first.** The fastest path is from opening the app to writing; organizing is optional.
 4. **Light on the device.** Small, fast and readable on a cheap phone in any of the supported languages.
 
