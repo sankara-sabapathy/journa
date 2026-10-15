@@ -1,4 +1,7 @@
 import { useSyncExternalStore } from 'react'
+import { decryptText, encryptText, WrongPassphraseError } from '../backup/crypto'
+import { entrySchema } from '../backup/format'
+import { getBackupSettings } from '../backup/scheduler'
 import { db } from '../db/db'
 import { onChange } from '../db/repo'
 import type { Entry } from '../db/types'
@@ -164,16 +167,17 @@ export async function syncNow(): Promise<boolean> {
     const entries = await db.entries.toArray()
     const outboxRows = await db.outbox.toArray()
     const byId = new Map(entries.map((entry) => [entry.id, entry]))
-    const push: SyncItem[] = outboxRows
-      .map((row) => byId.get(row.id))
-      .filter((entry): entry is Entry => Boolean(entry))
-      .map((entry) => ({
-        kind: 'plain',
-        id: entry.id,
-        updatedAt: entry.updatedAt,
-        deletedAt: entry.deletedAt,
-        entry,
-      }))
+    const { passphrase } = await getBackupSettings()
+    if (!passphrase) {
+      update({ status: 'error', userId, email, lastSyncAt, error: 'sync-passphrase-required' })
+      return false
+    }
+    const push: SyncItem[] = await Promise.all(
+      outboxRows
+        .map((row) => byId.get(row.id))
+        .filter((entry): entry is Entry => Boolean(entry))
+        .map((entry) => toSyncItem(entry, passphrase)),
+    )
 
     const cursor = await rememberedCursor()
     const requestBody = syncRequestSchema.parse({ cursor, push })
@@ -189,7 +193,7 @@ export async function syncNow(): Promise<boolean> {
 
     const json = await response.json()
     const parsed = syncResponseSchema.parse(json)
-    await applyPulledEntries(entries, parsed.pull)
+    await applyPulledEntries(entries, parsed.pull, passphrase)
     if (push.length > 0) await db.outbox.bulkDelete(push.map((item) => item.id))
     const nextLastSyncAt = Date.now()
     await putSettings(ACCOUNT_KEY, { lastSyncAt: nextLastSyncAt })
@@ -209,17 +213,32 @@ async function rememberedCursor(): Promise<number> {
   return row && typeof row.value === 'number' ? row.value : 0
 }
 
-async function applyPulledEntries(localEntries: readonly Entry[], pulled: readonly SyncItem[]): Promise<void> {
+async function toSyncItem(entry: Entry, passphrase: string): Promise<SyncItem> {
+  const cipher = await encryptText(JSON.stringify(entry), passphrase)
+  return { kind: 'encrypted', id: entry.id, updatedAt: entry.updatedAt, deletedAt: entry.deletedAt, cipher }
+}
+
+async function applyPulledEntries(localEntries: readonly Entry[], pulled: readonly SyncItem[], passphrase: string): Promise<void> {
   const localById = new Map(localEntries.map((entry) => [entry.id, entry]))
-  const winning = selectWinningEntries(
-    localById,
-    pulled
-      .filter((item): item is Extract<SyncItem, { kind: 'plain' }> => item.kind === 'plain')
-      .map((item) => item.entry),
-  )
-  const encryptedCount = pulled.filter((item) => item.kind === 'encrypted').length
-  if (encryptedCount > 0 && typeof window !== 'undefined') {
-    window.console.warn('skipped encrypted cloud entries until an E2EE passphrase is available locally')
+  const decrypted: Entry[] = []
+  let skipped = 0
+  for (const item of pulled) {
+    if (item.kind === 'plain') {
+      decrypted.push(item.entry)
+      continue
+    }
+    try {
+      const plaintext = await decryptText(item.cipher, passphrase)
+      const parsed = entrySchema.parse(JSON.parse(plaintext))
+      decrypted.push({ ...parsed, id: item.id, updatedAt: item.updatedAt, deletedAt: item.deletedAt })
+    } catch (error) {
+      if (!(error instanceof WrongPassphraseError)) throw error
+      skipped += 1
+    }
+  }
+  const winning = selectWinningEntries(localById, decrypted)
+  if (skipped > 0 && typeof window !== 'undefined') {
+    window.console.warn(`skipped ${skipped} cloud entries encrypted with another passphrase`)
   }
   for (const entry of winning) {
     await db.entries.put(entry)
