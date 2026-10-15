@@ -5,12 +5,14 @@ import { scheduler } from './backup/scheduler'
 import { folderTarget } from './backup/targets/folderTarget'
 import { I18nProvider } from './i18n'
 import { requestPersistence } from './pwa/persistStorage'
+import { syncEngine } from './sync/engine'
 import './styles/tokens.css'
 import './styles/coss.css'
 import './styles/app.css'
 
 void requestPersistence()
 void scheduler.start(folderTarget)
+void syncEngine.start()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

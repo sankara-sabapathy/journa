@@ -8,7 +8,6 @@ export type NewEntry = Partial<Omit<Entry, 'id' | 'createdAt' | 'updatedAt' | 'd
 
 const listeners = new Set<() => void>()
 
-/** Subscribe to any local write (used by the backup scheduler). */
 export function onChange(fn: () => void): () => void {
   listeners.add(fn)
   return () => listeners.delete(fn)
@@ -23,20 +22,26 @@ export function newId(): string {
 }
 
 export function makeEntry(input: NewEntry, now = Date.now()): Entry {
+  const date = input.type === 'journal' && !input.date
+    ? toISODate(new Date(now))
+    : input.date
   const entry: Entry = {
-    id: newId(),
+    id: input.type === 'journal' && date
+      ? `journal-${date}`
+      : newId(),
     title: '',
     body: '',
     tags: [],
     pinned: 0,
     ...input,
+    type: input.type,
+    date,
     createdAt: now,
     updatedAt: now,
     deletedAt: 0,
   }
   if (entry.type === 'task' && entry.done === undefined) entry.done = false
   if (entry.type === 'checklist' && !entry.items) entry.items = []
-  if (entry.type === 'journal' && !entry.date) entry.date = toISODate(new Date(now))
   return entry
 }
 
@@ -79,7 +84,6 @@ export function createRepo(database: JournaDB = db) {
       changed()
     },
 
-    /** Permanently removes everything in Trash. */
     async emptyTrash(): Promise<number> {
       const n = await database.entries.where('deletedAt').above(0).delete()
       changed()
@@ -106,14 +110,11 @@ export function createRepo(database: JournaDB = db) {
         .first()
     },
 
-    /** Returns today's journal entry, creating an empty one if needed. */
     async ensureJournal(date = toISODate()): Promise<Entry> {
       return database.transaction('rw', database.entries, database.outbox, async () => {
         const existing = await this.journalFor(date)
         if (existing) return existing
         const entry = makeEntry({ type: 'journal', date })
-        // Deterministic id lets two offline devices create the same daily entry and merge it later.
-        entry.id = `journal-${date}`
         await database.entries.add(entry)
         await touchOutbox(entry.id, entry.updatedAt)
         changed()
@@ -121,7 +122,6 @@ export function createRepo(database: JournaDB = db) {
       })
     },
 
-    /** Dates (YYYY-MM-DD) that have a journal entry with text, within [from, to]. */
     async writtenDays(from: string, to: string): Promise<Set<string>> {
       const rows = await database.entries.where('date').between(from, to, true, true).toArray()
       return new Set(
@@ -143,7 +143,6 @@ export function createRepo(database: JournaDB = db) {
       return keys.map(String).sort((a, b) => a.localeCompare(b))
     },
 
-    /** Removes an entry the user created but never filled in (no trash, no backup noise). */
     async discardIfEmpty(id: string): Promise<boolean> {
       const e = await database.entries.get(id)
       if (!e || e.type === 'journal') return false
@@ -174,7 +173,6 @@ function searchText(e: Entry): string {
   return `${e.title} ${e.body} ${e.tags.join(' ')} ${items}`.toLocaleLowerCase()
 }
 
-/** Pinned first, then most recently updated. */
 export function sortEntries(rows: Entry[]): Entry[] {
   return rows.sort((a, b) => b.pinned - a.pinned || b.updatedAt - a.updatedAt)
 }

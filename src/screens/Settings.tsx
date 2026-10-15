@@ -16,12 +16,119 @@ import { useBackupState } from '../components/BackupChip'
 import { Segmented } from '../components/Segmented'
 import { LOCALES, useI18n, type Locale } from '../i18n'
 import { storageInfo } from '../pwa/persistStorage'
+import { supportsPasskeys } from '../sync/auth'
+import { syncEngine, useAccountState } from '../sync/engine'
 
 function download(name: string, data: BlobPart, type: string) {
   const url = URL.createObjectURL(new Blob([data], { type }))
   const a = Object.assign(document.createElement('a'), { href: url, download: name })
   a.click()
   setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
+function AccountPanel() {
+  const { t, fmt } = useI18n()
+  const account = useAccountState()
+  const [email, setEmail] = useState('')
+  const [code, setCode] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  async function run(fn: () => Promise<unknown>) {
+    setBusy(true)
+    try {
+      await fn()
+    } catch (err) {
+      toast(err instanceof Error ? err.message : String(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  if (account.status === 'signed-out') {
+    return (
+      <section className="panel" aria-labelledby="h-account">
+        <h2 id="h-account">{t('account.title')}</h2>
+        <p className="muted">{t('account.optionalHint')}</p>
+        <form
+          className="field"
+          onSubmit={(e) => {
+            e.preventDefault()
+            if (email.trim()) void run(() => syncEngine.beginEmailSignIn(email.trim()))
+          }}
+        >
+          <label htmlFor="account-email">{t('account.email')}</label>
+          <Input
+            id="account-email"
+            size="lg"
+            type="email"
+            autoComplete="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder={t('account.emailPlaceholder')}
+          />
+          <div className="btn-row">
+            <Button size="lg" type="submit" loading={busy} disabled={!email.trim()}>
+              {t('account.signInEmail')}
+            </Button>
+            {supportsPasskeys() && (
+              <Button size="lg" variant="outline" loading={busy} onClick={() => void run(() => syncEngine.signInWithPasskey())}>
+                {t('account.signInPasskey')}
+              </Button>
+            )}
+          </div>
+        </form>
+      </section>
+    )
+  }
+
+  if (account.status === 'awaiting-otp') {
+    return (
+      <section className="panel" aria-labelledby="h-account">
+        <h2 id="h-account">{t('account.title')}</h2>
+        <p className="muted">{account.email}</p>
+        <form
+          className="field"
+          onSubmit={(e) => {
+            e.preventDefault()
+            if (code.trim()) void run(() => syncEngine.verifyEmailOtp(code.trim()))
+          }}
+        >
+          <label htmlFor="account-code">{t('account.code')}</label>
+          <Input
+            id="account-code"
+            size="lg"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+          />
+          <div className="btn-row">
+            <Button size="lg" type="submit" loading={busy} disabled={!code.trim()}>
+              {t('account.verify')}
+            </Button>
+          </div>
+        </form>
+      </section>
+    )
+  }
+
+  const syncing = account.status === 'syncing'
+  return (
+    <section className="panel" aria-labelledby="h-account">
+      <h2 id="h-account">{t('account.title')}</h2>
+      <p>{account.email}</p>
+      <p className="muted">{account.lastSyncAt ? t('account.lastSync', { time: fmt.relative(account.lastSyncAt) }) : t('account.neverSynced')}</p>
+      {account.status === 'error' && <p className="warn">{t('account.failed', { error: account.error })}</p>}
+      <div className="btn-row">
+        <Button size="lg" variant="outline" loading={syncing || busy} onClick={() => void run(() => syncEngine.syncNow())}>
+          {t('account.syncNow')}
+        </Button>
+        <Button size="lg" variant="ghost" loading={busy} onClick={() => void run(() => syncEngine.signOut())}>
+          {t('account.signOut')}
+        </Button>
+      </div>
+    </section>
+  )
 }
 
 function BackupPanel() {
@@ -323,6 +430,7 @@ export function Settings() {
   const [theme, setTheme] = useTheme()
   return (
     <div className="settings">
+      <AccountPanel />
       <BackupPanel />
       <DataPanel />
       <StoragePanel />
