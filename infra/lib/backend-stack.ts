@@ -162,6 +162,36 @@ export class JournaBackendStack extends Stack {
       integration: new integrations.HttpLambdaIntegration('DeleteBackupRoute', syncFunction),
     })
 
+    httpApi.addRoutes({
+      path: '/v1/devices',
+      methods: [apigwv2.HttpMethod.GET],
+      integration: new integrations.HttpLambdaIntegration('ListDevicesRoute', syncFunction),
+    })
+
+    httpApi.addRoutes({
+      path: '/v1/devices/{id}',
+      methods: [apigwv2.HttpMethod.PUT],
+      integration: new integrations.HttpLambdaIntegration('UpsertDeviceRoute', syncFunction),
+    })
+
+    httpApi.addRoutes({
+      path: '/v1/devices/{id}',
+      methods: [apigwv2.HttpMethod.DELETE],
+      integration: new integrations.HttpLambdaIntegration('RevokeDeviceRoute', syncFunction),
+    })
+
+    httpApi.addRoutes({
+      path: '/v1/devices/{id}/dek',
+      methods: [apigwv2.HttpMethod.PUT],
+      integration: new integrations.HttpLambdaIntegration('PutDekRoute', syncFunction),
+    })
+
+    httpApi.addRoutes({
+      path: '/v1/devices/{id}/dek',
+      methods: [apigwv2.HttpMethod.GET],
+      integration: new integrations.HttpLambdaIntegration('GetDekRoute', syncFunction),
+    })
+
     // Keep exact JWT / IDs handy for the client build.
     new cdk.CfnOutput(this, 'UserPoolId', { value: userPool.userPoolId })
     new cdk.CfnOutput(this, 'UserPoolClientId', { value: client.userPoolClientId })
