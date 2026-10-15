@@ -9,6 +9,8 @@
     "test": "echo \"No infra tests yet\""
   },
   "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.1152.0",
+    "@aws-sdk/lib-dynamodb": "^3.1152.0",
     "aws-cdk-lib": "^2.273.0",
     "constructs": "^10.4.2"
   },
