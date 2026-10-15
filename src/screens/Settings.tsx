@@ -17,6 +17,17 @@ import { Segmented } from '../components/Segmented'
 import { LOCALES, useI18n, type Locale } from '../i18n'
 import { storageInfo } from '../pwa/persistStorage'
 import { supportsPasskeys } from '../sync/auth'
+import {
+  approveDevice,
+  ensureDeviceIdentity,
+  exportRecoveryKey,
+  importRecoveryKey,
+  listDevices,
+  localDataKey,
+  resolveDataKey,
+  revokeDevice,
+  type DeviceRecord,
+} from '../sync/devices'
 import { syncEngine, useAccountState } from '../sync/engine'
 
 function download(name: string, data: BlobPart, type: string) {
@@ -127,6 +138,126 @@ function AccountPanel() {
           {t('account.signOut')}
         </Button>
       </div>
+    </section>
+  )
+}
+
+function DevicesPanel() {
+  const { t } = useI18n()
+  const account = useAccountState()
+  const [devices, setDevices] = useState<DeviceRecord[]>([])
+  const [thisId, setThisId] = useState<string | null>(null)
+  const [hasKey, setHasKey] = useState(false)
+  const [recovery, setRecovery] = useState<string | null>(null)
+  const [importKey, setImportKey] = useState('')
+  const [busy, setBusy] = useState(false)
+  const signedIn = account.status === 'idle' || account.status === 'syncing' || account.status === 'error'
+
+  useEffect(() => {
+    if (!signedIn) return
+    void refresh()
+  }, [signedIn, account.status])
+
+  async function refresh() {
+    const identity = await ensureDeviceIdentity()
+    setThisId(identity.deviceId)
+    setDevices(await listDevices())
+    setHasKey((await localDataKey()) !== null)
+  }
+
+  async function run(fn: () => Promise<unknown>) {
+    setBusy(true)
+    try {
+      await fn()
+      await refresh()
+    } catch (err) {
+      toast(err instanceof Error ? err.message : String(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function approveListed(deviceId: string) {
+    const dek = await localDataKey()
+    if (!dek) throw new Error('sync-device-not-enrolled')
+    await approveDevice(deviceId, dek)
+  }
+
+  if (!signedIn) return null
+
+  return (
+    <section className="panel" aria-labelledby="h-devices">
+      <h2 id="h-devices">{t('devices.title')}</h2>
+      <p className="muted">{t('devices.hint')}</p>
+      <ul className="device-list">
+        {devices.map((d) => (
+          <li key={d.deviceId} className="device-row">
+            <span className="device-id" title={d.deviceId}>
+              {d.deviceId === thisId ? t('devices.thisDevice') : d.deviceId.slice(0, 8)}
+            </span>
+            {d.deviceId !== thisId && hasKey && (
+              <Button size="lg" variant="outline" loading={busy} onClick={() => void run(() => approveListed(d.deviceId))}>
+                {t('devices.approve')}
+              </Button>
+            )}
+            {d.deviceId !== thisId && (
+              <Button size="lg" variant="ghost" loading={busy} onClick={() => void run(() => revokeDevice(d.deviceId))}>
+                {t('devices.revoke')}
+              </Button>
+            )}
+          </li>
+        ))}
+      </ul>
+      {!hasKey && (
+        <>
+          <div className="btn-row">
+            <Button size="lg" variant="outline" loading={busy} onClick={() => void run(() => resolveDataKey('Journa device'))}>
+              {t('devices.enable')}
+            </Button>
+          </div>
+          <p className="muted">{t('devices.waiting')}</p>
+          <form
+            className="field"
+            onSubmit={(e) => {
+              e.preventDefault()
+              if (importKey.trim()) void run(() => importRecoveryKey(importKey.trim()))
+            }}
+          >
+            <label htmlFor="recovery-import">{t('devices.importRecovery')}</label>
+            <Input
+              id="recovery-import"
+              size="lg"
+              autoComplete="off"
+              value={importKey}
+              onChange={(e) => setImportKey(e.target.value)}
+            />
+            <div className="btn-row">
+              <Button size="lg" type="submit" variant="outline" disabled={!importKey.trim()}>
+                {t('devices.import')}
+              </Button>
+            </div>
+          </form>
+        </>
+      )}
+      {hasKey && (
+        <>
+          <div className="btn-row">
+            <Button
+              size="lg"
+              variant="outline"
+              onClick={async () => setRecovery(recovery ? null : await exportRecoveryKey())}
+            >
+              {t('devices.showRecovery')}
+            </Button>
+          </div>
+          {recovery && (
+            <>
+              <p className="muted">{t('devices.recoveryHint')}</p>
+              <p className="recovery-key">{recovery}</p>
+            </>
+          )}
+        </>
+      )}
     </section>
   )
 }
@@ -431,6 +562,7 @@ export function Settings() {
   return (
     <div className="settings">
       <AccountPanel />
+      <DevicesPanel />
       <BackupPanel />
       <DataPanel />
       <StoragePanel />

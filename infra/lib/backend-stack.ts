@@ -11,10 +11,8 @@ import * as nodejs from 'aws-cdk-lib/aws-lambda-nodejs'
 import * as path from 'node:path'
 import { Construct } from 'constructs'
 
-/**
- * AWS CDK stack for Journa's optional backend. Frontend hosting lives in
- * `JournaFrontendStack`, so a site deploy cannot take down sync storage.
- */
+const AUTOMATIC_BACKUP_RETENTION = Duration.days(90)
+
 export class JournaBackendStack extends Stack {
   constructor(scope: Construct, id: string, props?: StackProps) {
     super(scope, id, props)
@@ -87,9 +85,8 @@ export class JournaBackendStack extends Stack {
       versioned: false,
       lifecycleRules: [
         {
-          // Keep rotated automatic backups small on the bill; .jbak uploads are cheap.
           id: 'expire-old-backups',
-          expiration: Duration.days(90),
+          expiration: AUTOMATIC_BACKUP_RETENTION,
         },
       ],
     })
@@ -192,7 +189,6 @@ export class JournaBackendStack extends Stack {
       integration: new integrations.HttpLambdaIntegration('GetDekRoute', syncFunction),
     })
 
-    // Keep exact JWT / IDs handy for the client build.
     new cdk.CfnOutput(this, 'UserPoolId', { value: userPool.userPoolId })
     new cdk.CfnOutput(this, 'UserPoolClientId', { value: client.userPoolClientId })
     new cdk.CfnOutput(this, 'BackendApiUrl', { value: httpApi.apiEndpoint })

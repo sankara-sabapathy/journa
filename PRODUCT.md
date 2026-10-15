@@ -31,7 +31,7 @@ Journa is one private place for notes, tasks, checklists and a daily journal. It
 - Installed PWA on a phone for quick daily capture; a desktop browser (Chrome/Edge) for longer writing and for setting up automatic folder backups.
 - Often offline or on a flaky connection; the app must never depend on the network.
 - Backups land in a folder that a desktop sync client (Google Drive, OneDrive, Dropbox) uploads. Restore = import a backup file.
-- Signed-in cloud sync is end-to-end encrypted by default and works only after the user opts in; the app remains fully offline-capable otherwise.
+- Signed-in cloud sync is end-to-end encrypted by device keys and works only after the user opts in; the app remains fully offline-capable otherwise.
 
 ## Capabilities and Constraints
 
@@ -43,7 +43,7 @@ Journa is one private place for notes, tasks, checklists and a daily journal. It
 - Optional passphrase encryption of backups (WebCrypto).
 - **i18n from day 1:** English (default), Tamil, Hindi. All UI strings go through the i18n layer; dates and numbers use `Intl`. Tamil and Hindi translations need review by a native speaker.
 - **No analytics, no tracking, no third-party requests** (no CDN fonts or scripts). System fonts only, so Tamil and Devanagari render with the device's fonts.
-- **Optional, opt-in sign-in.** It must stay optional: every existing feature (writing, search, import/export, folder backups) keeps working signed out, and nothing is uploaded unless the user signs in and opts in. Sign-in enables passkey or email-OTP sign-in, cross-device sync, and optional cloud backups. Cloud data is end-to-end encrypted with the user's passphrase by default; Journa cannot read, decrypt, or recover user content. Before syncing conflicting edits made on different devices, prompt with a diff and ask which version to keep (or save the other for later).
+- **Optional, opt-in sign-in.** It must stay optional: every existing feature (writing, search, import/export, folder backups) keeps working signed out, and nothing is uploaded unless the user signs in and opts in. Sign-in enables passkey or email-OTP sign-in, cross-device sync, and optional cloud backups. Cloud sync is end-to-end encrypted with a per-user data key: each device holds its own keypair, new devices are approved from a trusted device or joined with a recovery key, and Journa cannot read, decrypt, or recover user content. The backup passphrase only encrypts local export files, never cloud sync. Before syncing conflicting edits made on different devices, prompt with a diff and ask which version to keep (or save the other for later).
 - Undecided: cloud-API backup targets (Dropbox/Google Drive/OneDrive), attachments, reminders. Hosting is two separate CDK stacks: frontend hosting and backend.
 
 ## Brand Commitments

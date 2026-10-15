@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { decryptText, encryptText } from '../backup/crypto'
 import type { Entry } from '../db/types'
+import { openEntry, randomDataKey, sealEntry } from './deviceKeys'
 import { syncItemSchema } from './types'
 
 const entry: Entry = {
@@ -18,17 +18,18 @@ const entry: Entry = {
 
 describe('sync E2EE envelope', () => {
   it('round-trips an entry through ciphertext the server cannot read', async () => {
-    const cipher = await encryptText(JSON.stringify(entry), 'correct horse')
+    const dek = await randomDataKey()
+    const sealed = await sealEntry(dek, entry)
     const parsed = syncItemSchema.parse({
       kind: 'encrypted',
       id: entry.id,
       updatedAt: entry.updatedAt,
       deletedAt: entry.deletedAt,
-      cipher,
+      cipher: sealed,
     })
     expect(parsed.kind).toBe('encrypted')
     if (parsed.kind !== 'encrypted') throw new Error('expected encrypted envelope')
     expect(JSON.stringify(parsed.cipher)).not.toContain('hello')
-    expect(JSON.parse(await decryptText(parsed.cipher, 'correct horse'))).toEqual(entry)
+    expect(await openEntry(dek, parsed.cipher)).toEqual(entry)
   })
 })

@@ -1,18 +1,21 @@
 import { z } from 'zod'
-import { encryptedSchema, entrySchema } from '../backup/format'
+import { entrySchema } from '../backup/format'
 
-/** A Journa user id, always `sub` from Cognito in `UserId#...` form. */
+/** Cognito `sub`, branded so user ids never mix with other string ids. */
 export type UserId = string & { readonly __brand: 'UserId' }
 
-/** Monotonic per-user server cursor returned by `POST /v1/sync`. */
 export type SyncCursor = number & { readonly __brand: 'SyncCursor' }
 
-/**
- * One synced record. Plaintext entries carry a full `Entry`; encrypted entries
- * carry the AES-GCM payload produced by `encryptText` in `src/backup/crypto.ts`
- * so the server only ever sees ciphertext. `id`, `updatedAt` and `deletedAt`
- * always remain in the clear for LWW ordering.
- */
+export const sealedEntrySchema = z.object({
+  id: z.string().min(1),
+  updatedAt: z.number().int().nonnegative(),
+  deletedAt: z.number().int().nonnegative(),
+  ivB64: z.string().min(1),
+  dataB64: z.string().min(1),
+})
+
+export type SealedEntry = z.infer<typeof sealedEntrySchema>
+
 export const syncItemSchema = z.discriminatedUnion('kind', [
   z.object({
     kind: z.literal('plain'),
@@ -26,7 +29,7 @@ export const syncItemSchema = z.discriminatedUnion('kind', [
     id: z.string().min(1),
     updatedAt: z.number().int().nonnegative(),
     deletedAt: z.number().int().nonnegative(),
-    cipher: encryptedSchema,
+    cipher: sealedEntrySchema,
   }),
 ])
 
@@ -47,7 +50,6 @@ export const syncResponseSchema = z.object({
 export type SyncRequest = z.infer<typeof syncRequestSchema>
 export type SyncResponse = z.infer<typeof syncResponseSchema>
 
-/** Tracks whether we are offering old or new data for a conflicting entry. */
 export type SyncConflictReason = 'concurrent-edit' | 'edit-after-delete' | 'same-update'
 
 export interface SyncConflict {

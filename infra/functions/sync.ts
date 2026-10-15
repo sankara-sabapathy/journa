@@ -111,6 +111,7 @@ export const handler = async (event: LambdaEvent): Promise<{
         .filter((item) => (item['revokedAt'] ?? 0) === 0)
         .map((item) => ({
           deviceId: item['deviceId'] as string,
+          publicKeyJwk: ((item['publicKeyJwk'] ?? null) as Record<string, unknown> | null),
           label: (item['label'] as string) ?? '',
           createdAt: (item['createdAt'] as number) ?? 0,
         }))
