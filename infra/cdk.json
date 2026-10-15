@@ -1,0 +1,7 @@
+{
+  "app": "node dist/bin/journa.js",
+  "watch": {
+    "include": ["lib/**/*.ts", "bin/**/*.ts", "functions/**/*.ts"],
+    "exclude": ["node_modules", "dist", "test"]
+  }
+}

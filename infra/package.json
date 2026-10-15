@@ -1,0 +1,21 @@
+{
+  "name": "journa-infra",
+  "private": true,
+  "version": "0.0.0",
+  "type": "commonjs",
+  "scripts": {
+    "build": "tsc",
+    "synth": "npm run build && cdk synth",
+    "test": "echo \"No infra tests yet\""
+  },
+  "dependencies": {
+    "aws-cdk-lib": "^2.273.0",
+    "constructs": "^10.4.2"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.3",
+    "aws-cdk": "^2.273.0",
+    "esbuild": "^0.27.0",
+    "typescript": "^5.8.2"
+  }
+}
