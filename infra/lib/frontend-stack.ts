@@ -10,6 +10,7 @@ export class JournaFrontendStack extends Stack {
     super(scope, id, props)
 
     const siteBucket = new s3.Bucket(this, 'JournaSiteBucket', {
+      bucketName: `journa-site-${this.account}`,
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
       encryption: s3.BucketEncryption.S3_MANAGED,
       enforceSSL: true,
