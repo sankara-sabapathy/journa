@@ -1,0 +1,68 @@
+name: Deploy frontend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'public/**'
+      - 'index.html'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'vite.config.ts'
+      - 'infra/**'
+      - '.github/workflows/deploy-frontend.yml'
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: ap-south-1
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Install infra dependencies
+        run: npm ci
+        working-directory: infra
+
+      - name: Bootstrap CDK (idempotent)
+        run: npx cdk bootstrap aws://612850243659/ap-south-1
+        working-directory: infra
+
+      - name: Deploy frontend stack
+        run: npx cdk deploy JournaFrontendStack --require-approval never --outputs-file cdk.outputs.json
+        working-directory: infra
+
+      - name: Read stack outputs
+        id: outputs
+        run: |
+          BUCKET=$(aws cloudformation describe-stacks --stack-name JournaFrontendStack --query "Stacks[0].Outputs[?OutputKey=='SiteBucketName'].OutputValue" --output text)
+          DIST_ID=$(aws cloudformation describe-stacks --stack-name JournaFrontendStack --query "Stacks[0].Outputs[?OutputKey=='DistributionId'].OutputValue" --output text)
+          echo "bucket=$BUCKET" >> "$GITHUB_OUTPUT"
+          echo "dist_id=$DIST_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Build site
+        run: |
+          npm ci
+          npm run build
+
+      - name: Sync to S3
+        run: aws s3 sync dist/ "s3://${{ steps.outputs.outputs.bucket }}" --delete
+
+      - name: Invalidate CloudFront
+        run: aws cloudfront create-invalidation --distribution-id "${{ steps.outputs.outputs.dist_id }}" --paths "/*"
