@@ -37,7 +37,9 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Install infra dependencies
-        run: npm ci
+        run: |
+          npm ci
+          npm run build
         working-directory: infra
 
       - name: Bootstrap CDK (idempotent)
