@@ -1,4 +1,4 @@
-const DEFAULT_REGION = 'us-east-1'
+const DEFAULT_REGION = 'ap-south-1'
 
 export interface CloudCredentials {
   accessToken: string

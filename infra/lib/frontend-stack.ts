@@ -1,8 +1,12 @@
+import * as cdk from 'aws-cdk-lib'
 import { Duration, Stack, StackProps } from 'aws-cdk-lib'
 import * as cloudfront from 'aws-cdk-lib/aws-cloudfront'
 import * as origins from 'aws-cdk-lib/aws-cloudfront-origins'
+import * as iam from 'aws-cdk-lib/aws-iam'
 import * as s3 from 'aws-cdk-lib/aws-s3'
 import { Construct } from 'constructs'
+
+const GITHUB_REPO = 'sankara-sabapathy/journa'
 
 export class JournaFrontendStack extends Stack {
   constructor(scope: Construct, id: string, props?: StackProps) {
@@ -15,7 +19,7 @@ export class JournaFrontendStack extends Stack {
       objectOwnership: s3.ObjectOwnership.BUCKET_OWNER_ENFORCED,
     })
 
-    new cloudfront.Distribution(this, 'JournaSiteDistribution', {
+    const distribution = new cloudfront.Distribution(this, 'JournaSiteDistribution', {
       comment: 'Journa PWA hosting',
       defaultRootObject: 'index.html',
       defaultBehavior: {
@@ -31,5 +35,30 @@ export class JournaFrontendStack extends Stack {
         },
       ],
     })
+
+    const githubProvider = new iam.OpenIdConnectProvider(this, 'GitHubActionsProvider', {
+      url: 'https://token.actions.githubusercontent.com',
+      clientIds: ['sts.amazonaws.com'],
+    })
+
+    const deployRole = new iam.Role(this, 'GitHubDeployRole', {
+      roleName: 'journa-github-deploy',
+      assumedBy: new iam.WebIdentityPrincipal(githubProvider.openIdConnectProviderArn, {
+        StringLike: { 'token.actions.githubusercontent.com:sub': `repo:${GITHUB_REPO}:*` },
+        StringEquals: { 'token.actions.githubusercontent.com:aud': 'sts.amazonaws.com' },
+      }),
+    })
+    siteBucket.grantReadWrite(deployRole)
+    distribution.grantCreateInvalidation(deployRole)
+    deployRole.addToPolicy(
+      new iam.PolicyStatement({
+        actions: ['cloudformation:DescribeStacks'],
+        resources: [this.stackId],
+      }),
+    )
+
+    new cdk.CfnOutput(this, 'SiteBucketName', { value: siteBucket.bucketName })
+    new cdk.CfnOutput(this, 'DistributionId', { value: distribution.distributionId })
+    new cdk.CfnOutput(this, 'DeployRoleArn', { value: deployRole.roleArn })
   }
 }
