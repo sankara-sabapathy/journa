@@ -5,6 +5,7 @@ import * as authorizers from 'aws-cdk-lib/aws-apigatewayv2-authorizers'
 import * as integrations from 'aws-cdk-lib/aws-apigatewayv2-integrations'
 import * as cognito from 'aws-cdk-lib/aws-cognito'
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb'
+import * as iam from 'aws-cdk-lib/aws-iam'
 import * as s3 from 'aws-cdk-lib/aws-s3'
 import * as lambda from 'aws-cdk-lib/aws-lambda'
 import * as nodejs from 'aws-cdk-lib/aws-lambda-nodejs'
@@ -105,6 +106,7 @@ export class JournaBackendStack extends Stack {
       environment: {
         TABLE_NAME: table.tableName,
         BACKUPS_BUCKET_NAME: backups.bucketName,
+        USER_POOL_ID: userPool.userPoolId,
       },
       bundling: {
         minify: true,
@@ -115,6 +117,12 @@ export class JournaBackendStack extends Stack {
 
     table.grantReadWriteData(syncFunction)
     backups.grantReadWrite(syncFunction)
+    syncFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['cognito-idp:AdminDeleteUser'],
+        resources: [userPool.userPoolArn],
+      }),
+    )
 
     const authorizer = new authorizers.HttpJwtAuthorizer('JournaAuthorizer', `https://cognito-idp.${this.region}.amazonaws.com/${userPool.userPoolId}`, {
       authorizerName: `${scopeTag}-jwt`,
@@ -190,6 +198,12 @@ export class JournaBackendStack extends Stack {
       path: '/v1/devices/{id}/dek',
       methods: [apigwv2.HttpMethod.GET],
       integration: new integrations.HttpLambdaIntegration('GetDekRoute', syncFunction),
+    })
+
+    httpApi.addRoutes({
+      path: '/v1/account',
+      methods: [apigwv2.HttpMethod.DELETE],
+      integration: new integrations.HttpLambdaIntegration('DeleteAccountRoute', syncFunction),
     })
 
     new cdk.CfnOutput(this, 'UserPoolId', { value: userPool.userPoolId })

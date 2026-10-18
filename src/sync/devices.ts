@@ -150,6 +150,10 @@ export async function revokeDevice(deviceId: string): Promise<void> {
   await call(`/v1/devices/${encodeURIComponent(deviceId)}`, { method: 'DELETE' })
 }
 
+export async function deleteAccount(): Promise<void> {
+  await call('/v1/account', { method: 'DELETE' })
+}
+
 export async function mintFirstDeviceKey(): Promise<Uint8Array<ArrayBuffer>> {  const identity = await ensureDeviceIdentity()
   const dek = await randomDataKey()
   await writeDek(dek)

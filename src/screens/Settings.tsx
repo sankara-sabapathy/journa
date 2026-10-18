@@ -19,6 +19,7 @@ import { storageInfo } from '../pwa/persistStorage'
 import { supportsPasskeys } from '../sync/auth'
 import {
   approveDevice,
+  deleteAccount,
   ensureDeviceIdentity,
   exportRecoveryKey,
   importRecoveryKey,
@@ -124,6 +125,20 @@ function AccountPanel() {
   }
 
   const syncing = account.status === 'syncing'
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  async function eraseEverything() {
+    setBusy(true)
+    try {
+      await deleteAccount()
+      setConfirmDelete(false)
+      await syncEngine.signOut()
+      toast(t('account.deleted'))
+    } catch (err) {
+      toast(err instanceof Error ? err.message : String(err))
+    } finally {
+      setBusy(false)
+    }
+  }
   return (
     <section className="panel" aria-labelledby="h-account">
       <h2 id="h-account">{t('account.title')}</h2>
@@ -137,6 +152,17 @@ function AccountPanel() {
         <Button size="lg" variant="ghost" loading={busy} onClick={() => void run(() => syncEngine.signOut())}>
           {t('account.signOut')}
         </Button>
+      </div>
+      <div className="btn-row">
+        {confirmDelete ? (
+          <Button size="lg" variant="destructive" loading={busy} onClick={() => void eraseEverything()}>
+            {t('account.deleteConfirm')}
+          </Button>
+        ) : (
+          <Button size="lg" variant="ghost" onClick={() => setConfirmDelete(true)}>
+            {t('account.delete')}
+          </Button>
+        )}
       </div>
     </section>
   )

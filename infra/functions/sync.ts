@@ -1,7 +1,8 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb'
-import { DynamoDBDocumentClient, GetCommand, PutCommand, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb'
-import { DeleteObjectCommand, ListObjectsV2Command, PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
+import { DynamoDBDocumentClient, GetCommand, PutCommand, QueryCommand, UpdateCommand, BatchWriteCommand, DeleteCommand } from '@aws-sdk/lib-dynamodb'
+import { DeleteObjectCommand, DeleteObjectsCommand, ListObjectsV2Command, PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
+import { AdminDeleteUserCommand, CognitoIdentityProviderClient } from '@aws-sdk/client-cognito-identity-provider'
 
 export interface LambdaEvent {
   rawPath?: string
@@ -21,8 +22,34 @@ export interface LambdaEvent {
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}), { marshallOptions: { removeUndefinedValues: true } })
 const s3 = new S3Client({})
+const cognito = new CognitoIdentityProviderClient({})
 const tableName = (): string => process.env.TABLE_NAME ?? ''
 const backupsBucket = (): string => process.env.BACKUPS_BUCKET_NAME ?? ''
+const userPoolId = (): string => process.env.USER_POOL_ID ?? ''
+
+/** Short-lived cache: identity links change only on first login, migration, or deletion. */
+const userIdCache = new Map<string, { userId: string; at: number }>()
+const USER_ID_CACHE_TTL_MS = 5 * 60 * 1000
+const USER_ID_CACHE_MAX = 1000
+
+function cachedUserId(iss: string, sub: string): string | undefined {
+  const hit = userIdCache.get(`${iss}#${sub}`)
+  if (!hit) return undefined
+  if (Date.now() - hit.at > USER_ID_CACHE_TTL_MS) {
+    userIdCache.delete(`${iss}#${sub}`)
+    return undefined
+  }
+  return hit.userId
+}
+
+function storeCachedUserId(iss: string, sub: string, userId: string): void {
+  if (userIdCache.size >= USER_ID_CACHE_MAX) userIdCache.clear()
+  userIdCache.set(`${iss}#${sub}`, { userId, at: Date.now() })
+}
+
+function dropCachedUserId(iss: string, sub: string): void {
+  userIdCache.delete(`${iss}#${sub}`)
+}
 
 const BACKUP_NAME_RE = /^journa-backup-\d{8}-\d{6}\.(json|jbak)$/
 const backupPrefix = (sub: string): string => `backups/${sub}/`
@@ -71,24 +98,99 @@ async function resolveUserId(event: LambdaEvent): Promise<string | null> {
   const table = tableName()
   if (!table) return null
 
+  const cached = cachedUserId(iss, sub)
+  if (cached) return cached
+
   const direct = await ddb.send(new GetCommand({ TableName: table, Key: { pk: idpPk(iss, sub), sk: 'LINK' } }))
-  if (typeof direct.Item?.['userId'] === 'string') return direct.Item['userId'] as string
+  if (typeof direct.Item?.['userId'] === 'string') {
+    const userId = direct.Item['userId'] as string
+    storeCachedUserId(iss, sub, userId)
+    return userId
+  }
 
   if (email) {
     const byEmail = await ddb.send(new GetCommand({ TableName: table, Key: { pk: emailPk(email), sk: 'LINK' } }))
     if (typeof byEmail.Item?.['userId'] === 'string') {
       const userId = byEmail.Item['userId'] as string
       await ddb.send(new PutCommand({ TableName: table, Item: { pk: idpPk(iss, sub), sk: 'LINK', userId } }))
+      storeCachedUserId(iss, sub, userId)
       return userId
     }
   }
 
   const userId = newUserId()
-  await ddb.send(new PutCommand({ TableName: table, Item: { pk: idpPk(iss, sub), sk: 'LINK', userId } }))
+  await ddb.send(new PutCommand({ TableName: table, Item: { pk: idpPk(iss, sub), sk: 'LINK', userId, email: email ?? '' } }))
   if (email) {
     await ddb.send(new PutCommand({ TableName: table, Item: { pk: emailPk(email), sk: 'LINK', userId } }))
   }
+  storeCachedUserId(iss, sub, userId)
   return userId
+}
+
+async function deleteAllByPk(pk: string): Promise<void> {
+  const table = tableName()
+  let startKey: Record<string, any> | undefined
+  do {
+    const out = await ddb.send(
+      new QueryCommand({ TableName: table, KeyConditionExpression: 'pk = :pk', ExpressionAttributeValues: { ':pk': pk }, ExclusiveStartKey: startKey }),
+    )
+    const keys = (out.Items ?? []).map((item) => ({ pk: item['pk'], sk: item['sk'] }))
+    for (let i = 0; i < keys.length; i += 25) {
+      const batch = keys.slice(i, i + 25)
+      const res = await ddb.send(
+        new BatchWriteCommand({ RequestItems: { [table]: batch.map((k) => ({ DeleteRequest: { Key: k } })) } }),
+      )
+      const unprocessed = res.UnprocessedItems?.[table] ?? []
+      if (unprocessed.length > 0) {
+        await ddb.send(new BatchWriteCommand({ RequestItems: { [table]: unprocessed } }))
+      }
+    }
+    startKey = out.LastEvaluatedKey as Record<string, any> | undefined
+  } while (startKey)
+}
+
+async function deleteS3Prefix(prefix: string): Promise<void> {
+  const bucket = backupsBucket()
+  let token: string | undefined
+  do {
+    const out = await s3.send(new ListObjectsV2Command({ Bucket: bucket, Prefix: prefix, ContinuationToken: token }))
+    const keys = (out.Contents ?? []).map((o) => o.Key).filter((k): k is string => typeof k === 'string')
+    if (keys.length > 0) {
+      await s3.send(new DeleteObjectsCommand({ Bucket: bucket, Delete: { Objects: keys.map((Key) => ({ Key })) } }))
+    }
+    token = out.IsTruncated ? out.NextContinuationToken : undefined
+  } while (token)
+}
+
+/**
+ * Full account erasure: user partition, identity links, S3 backups, then the
+ * Cognito user itself. Data goes first so a failed Cognito call leaves the
+ * pool record (retryable) rather than orphaned data with no owner.
+ */
+async function eraseAccount(event: LambdaEvent): Promise<{ statusCode: number; headers: Record<string, string>; body: string }> {
+  const sub = subOf(event)
+  if (!sub) return response(401, { error: 'unauthorized' })
+  const iss = issuerOf(event)
+  const table = tableName()
+  const poolId = userPoolId()
+  if (!table || !poolId) return response(500, { error: 'misconfigured' })
+
+  const link = await ddb.send(new GetCommand({ TableName: table, Key: { pk: idpPk(iss, sub), sk: 'LINK' } }))
+  if (typeof link.Item?.['userId'] !== 'string') return response(404, { error: 'not-found' })
+  const userId = link.Item['userId'] as string
+
+  await deleteAllByPk(userPk(userId))
+  await ddb.send(new DeleteCommand({ TableName: table, Key: { pk: idpPk(iss, sub), sk: 'LINK' } }))
+  const storedEmail = typeof link.Item?.['email'] === 'string' && link.Item['email'] !== '' ? (link.Item['email'] as string) : null
+  const email = verifiedEmailOf(event) ?? storedEmail
+  if (email) {
+    await ddb.send(new DeleteCommand({ TableName: table, Key: { pk: emailPk(email), sk: 'LINK' } }))
+  }
+  await deleteS3Prefix(backupPrefix(userId))
+  dropCachedUserId(iss, sub)
+
+  await cognito.send(new AdminDeleteUserCommand({ UserPoolId: poolId, Username: sub }))
+  return response(200, { deleted: true })
 }
 
 function deviceIdOf(event: LambdaEvent): string | null {
@@ -176,6 +278,10 @@ export const handler = async (event: LambdaEvent): Promise<{
     if (!BACKUP_NAME_RE.test(name)) return response(400, { error: 'invalid-backup-name' })
     await s3.send(new DeleteObjectCommand({ Bucket: bucket, Key: `${backupPrefix(sub)}${name}` }))
     return response(204, '')
+  }
+
+  if (method === 'DELETE' && path === '/v1/account') {
+    return eraseAccount(event)
   }
 
   if (path === '/v1/devices' || path.startsWith('/v1/devices/')) {
