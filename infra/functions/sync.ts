@@ -80,6 +80,10 @@ function verifiedEmailOf(event: LambdaEvent): string | null {
 
 const idpPk = (iss: string, sub: string): string => `IDP#${iss}#${sub}`
 const emailPk = (email: string): string => `EMAIL#${email.toLowerCase()}`
+const tombstonePk = (iss: string, sub: string): string => `TOMBSTONE#${iss}#${sub}`
+const TOMBSTONE_TTL_SECONDS = 2 * 60 * 60
+
+type Identity = { userId: string } | { deleted: true } | null
 
 function newUserId(): string {
   return crypto.randomUUID()
@@ -90,7 +94,7 @@ function newUserId(): string {
  * mints one and links the pool's sub; a later pool can link by verified email,
  * so pool migration keeps every row and every S3 object in place.
  */
-async function resolveUserId(event: LambdaEvent): Promise<string | null> {
+async function resolveUserId(event: LambdaEvent): Promise<Identity> {
   const sub = subOf(event)
   if (!sub) return null
   const iss = issuerOf(event)
@@ -99,22 +103,25 @@ async function resolveUserId(event: LambdaEvent): Promise<string | null> {
   if (!table) return null
 
   const cached = cachedUserId(iss, sub)
-  if (cached) return cached
+  if (cached) return { userId: cached }
 
   const direct = await ddb.send(new GetCommand({ TableName: table, Key: { pk: idpPk(iss, sub), sk: 'LINK' } }))
   if (typeof direct.Item?.['userId'] === 'string') {
     const userId = direct.Item['userId'] as string
     storeCachedUserId(iss, sub, userId)
-    return userId
+    return { userId }
   }
+
+  const tomb = await ddb.send(new GetCommand({ TableName: table, Key: { pk: tombstonePk(iss, sub), sk: 'TOMB' } }))
+  if (tomb.Item) return { deleted: true }
 
   if (email) {
     const byEmail = await ddb.send(new GetCommand({ TableName: table, Key: { pk: emailPk(email), sk: 'LINK' } }))
     if (typeof byEmail.Item?.['userId'] === 'string') {
       const userId = byEmail.Item['userId'] as string
-      await ddb.send(new PutCommand({ TableName: table, Item: { pk: idpPk(iss, sub), sk: 'LINK', userId } }))
+      await ddb.send(new PutCommand({ TableName: table, Item: { pk: idpPk(iss, sub), sk: 'LINK', userId, email } }))
       storeCachedUserId(iss, sub, userId)
-      return userId
+      return { userId }
     }
   }
 
@@ -124,7 +131,7 @@ async function resolveUserId(event: LambdaEvent): Promise<string | null> {
     await ddb.send(new PutCommand({ TableName: table, Item: { pk: emailPk(email), sk: 'LINK', userId } }))
   }
   storeCachedUserId(iss, sub, userId)
-  return userId
+  return { userId }
 }
 
 async function deleteAllByPk(pk: string): Promise<void> {
@@ -179,6 +186,16 @@ async function eraseAccount(event: LambdaEvent): Promise<{ statusCode: number; h
   if (typeof link.Item?.['userId'] !== 'string') return response(404, { error: 'not-found' })
   const userId = link.Item['userId'] as string
 
+  await ddb.send(
+    new PutCommand({
+      TableName: table,
+      Item: {
+        pk: tombstonePk(iss, sub),
+        sk: 'TOMB',
+        expiresAt: Math.floor(Date.now() / 1000) + TOMBSTONE_TTL_SECONDS,
+      },
+    }),
+  )
   await deleteAllByPk(userPk(userId))
   await ddb.send(new DeleteCommand({ TableName: table, Key: { pk: idpPk(iss, sub), sk: 'LINK' } }))
   const storedEmail = typeof link.Item?.['email'] === 'string' && link.Item['email'] !== '' ? (link.Item['email'] as string) : null
@@ -241,8 +258,10 @@ export const handler = async (event: LambdaEvent): Promise<{
   }
 
   if (method === 'POST' && path === '/v1/backups/presign') {
-    const sub = await resolveUserId(event)
-    if (!sub) return response(401, { error: 'unauthorized' })
+    const auth = await resolveUserId(event)
+    if (!auth) return response(401, { error: 'unauthorized' })
+    if ('deleted' in auth) return response(401, { error: 'account-deleted' })
+    const userId = auth.userId
     const bucket = backupsBucket()
     if (!bucket) return response(500, { error: 'misconfigured' })
     const parsed = parseBody(event)
@@ -250,33 +269,37 @@ export const handler = async (event: LambdaEvent): Promise<{
     if (!BACKUP_NAME_RE.test(name)) return response(400, { error: 'invalid-backup-name' })
     const uploadUrl = await getSignedUrl(
       s3,
-      new PutObjectCommand({ Bucket: bucket, Key: `${backupPrefix(sub)}${name}`, ContentType: 'application/json' }),
+      new PutObjectCommand({ Bucket: bucket, Key: `${backupPrefix(userId)}${name}`, ContentType: 'application/json' }),
       { expiresIn: 300 },
     )
     return response(200, { uploadUrl, uploadMethod: 'PUT' })
   }
 
   if (method === 'GET' && path === '/v1/backups') {
-    const sub = await resolveUserId(event)
-    if (!sub) return response(401, { error: 'unauthorized' })
+    const auth = await resolveUserId(event)
+    if (!auth) return response(401, { error: 'unauthorized' })
+    if ('deleted' in auth) return response(401, { error: 'account-deleted' })
+    const userId = auth.userId
     const bucket = backupsBucket()
     if (!bucket) return response(500, { error: 'misconfigured' })
-    const out = await s3.send(new ListObjectsV2Command({ Bucket: bucket, Prefix: backupPrefix(sub) }))
+    const out = await s3.send(new ListObjectsV2Command({ Bucket: bucket, Prefix: backupPrefix(userId) }))
     const backups = (out.Contents ?? [])
-      .map((o) => (o.Key ?? '').slice(backupPrefix(sub).length))
+      .map((o) => (o.Key ?? '').slice(backupPrefix(userId).length))
       .filter((name) => BACKUP_NAME_RE.test(name))
       .sort()
     return response(200, { backups })
   }
 
   if (method === 'DELETE' && path.startsWith('/v1/backups/')) {
-    const sub = await resolveUserId(event)
-    if (!sub) return response(401, { error: 'unauthorized' })
+    const auth = await resolveUserId(event)
+    if (!auth) return response(401, { error: 'unauthorized' })
+    if ('deleted' in auth) return response(401, { error: 'account-deleted' })
+    const userId = auth.userId
     const bucket = backupsBucket()
     if (!bucket) return response(500, { error: 'misconfigured' })
     const name = decodeURIComponent(path.slice('/v1/backups/'.length))
     if (!BACKUP_NAME_RE.test(name)) return response(400, { error: 'invalid-backup-name' })
-    await s3.send(new DeleteObjectCommand({ Bucket: bucket, Key: `${backupPrefix(sub)}${name}` }))
+    await s3.send(new DeleteObjectCommand({ Bucket: bucket, Key: `${backupPrefix(userId)}${name}` }))
     return response(204, '')
   }
 
@@ -285,11 +308,13 @@ export const handler = async (event: LambdaEvent): Promise<{
   }
 
   if (path === '/v1/devices' || path.startsWith('/v1/devices/')) {
-    const sub = await resolveUserId(event)
-    if (!sub) return response(401, { error: 'unauthorized' })
+    const auth = await resolveUserId(event)
+    if (!auth) return response(401, { error: 'unauthorized' })
+    if ('deleted' in auth) return response(401, { error: 'account-deleted' })
+    const userId = auth.userId
     const table = tableName()
     if (!table) return response(500, { error: 'misconfigured' })
-    const pk = userPk(sub)
+    const pk = userPk(userId)
 
     if (method === 'GET' && path === '/v1/devices') {
       const out = await ddb.send(

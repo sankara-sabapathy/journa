@@ -9,6 +9,7 @@ import * as iam from 'aws-cdk-lib/aws-iam'
 import * as s3 from 'aws-cdk-lib/aws-s3'
 import * as lambda from 'aws-cdk-lib/aws-lambda'
 import * as nodejs from 'aws-cdk-lib/aws-lambda-nodejs'
+import * as logs from 'aws-cdk-lib/aws-logs'
 import * as wafv2 from 'aws-cdk-lib/aws-wafv2'
 import * as path from 'node:path'
 import { Construct } from 'constructs'
@@ -78,6 +79,8 @@ export class JournaBackendStack extends Stack {
       pointInTimeRecoverySpecification: {
         pointInTimeRecoveryEnabled: true,
       },
+      timeToLiveAttribute: 'expiresAt',
+      deletionProtection: true,
     })
 
     const backups = new s3.Bucket(this, 'JournaBackupsBucket', {
@@ -103,6 +106,7 @@ export class JournaBackendStack extends Stack {
       memorySize: 256,
       timeout: Duration.seconds(15),
       reservedConcurrentExecutions: 20,
+      logRetention: logs.RetentionDays.ONE_MONTH,
       environment: {
         TABLE_NAME: table.tableName,
         BACKUPS_BUCKET_NAME: backups.bucketName,

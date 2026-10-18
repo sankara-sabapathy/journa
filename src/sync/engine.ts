@@ -202,6 +202,15 @@ export async function syncNow(): Promise<boolean> {
       },
       body: JSON.stringify(requestBody),
     })
+    if (response.status === 401) {
+      const body = (await response.json().catch(() => null)) as { error?: unknown } | null
+      if (body?.error === 'account-deleted') {
+        await clearStoredCredentials()
+        update({ status: 'signed-out' })
+        return false
+      }
+      throw new Error('sync-http-401')
+    }
     if (!response.ok) throw new Error(`sync-http-${response.status}`)
 
     const json = await response.json()
