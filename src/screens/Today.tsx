@@ -80,8 +80,8 @@ export function Today({ date }: { date: string }) {
   const today = toISODate()
 
   const open = tasks.filter((e) => !e.done)
-  const dueNow = open.filter((e) => e.due && e.due <= today)
-  const shown = [...dueNow, ...open.filter((e) => !e.due && e.pinned), ...tasks.filter((e) => e.done && e.updatedAt > fromISODate(today).getTime())].slice(0, 8)
+  const dueNow = open.filter((e) => !e.due || e.due <= today)
+  const shown = [...dueNow, ...tasks.filter((e) => e.done && e.updatedAt > fromISODate(today).getTime())].slice(0, 8)
 
   return (
     <div>

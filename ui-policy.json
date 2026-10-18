@@ -33,5 +33,11 @@
     { "width": 1440, "height": 900 }
   ],
   "colorSchemes": ["light", "dark"],
-  "exceptions": []
+  "exceptions": [
+    {
+      "rules": ["content-clipping"],
+      "selector": "span[role=\"tooltip\"].sr-only",
+      "reason": "Visually-hidden tooltip names for icon buttons; text is intentionally 1px-clipped by the standard sr-only pattern and exposed to assistive tech via aria-describedby."
+    }
+  ]
 }

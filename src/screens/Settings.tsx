@@ -582,6 +582,7 @@ function DataPanel() {
       <Dialog open={pending !== null} onOpenChange={(open) => !open && setPending(null)}>
         <DialogPopup showCloseButton={false}>
           <form
+            className="flex min-h-0 flex-col"
             onSubmit={async (e) => {
               e.preventDefault()
               if (!pending) return
@@ -620,6 +621,7 @@ function DataPanel() {
       <Dialog open={asking} onOpenChange={(open) => !open && answer(null)}>
         <DialogPopup showCloseButton={false}>
           <form
+            className="flex min-h-0 flex-col"
             onSubmit={(e) => {
               e.preventDefault()
               answer(passValue)

@@ -49,7 +49,7 @@ export function Tasks() {
   const open = tasks.filter((e) => !e.done)
   const byDue = (a: { due?: string }, b: { due?: string }) => (a.due ?? '9').localeCompare(b.due ?? '9')
   const shown = {
-    today: open.filter((e) => e.due && e.due <= today).sort(byDue),
+    today: open.filter((e) => !e.due || e.due <= today).sort(byDue),
     upcoming: open.filter((e) => e.due && e.due > today).sort(byDue),
     all: [...open].sort((a, b) => (a.priority ?? 4) - (b.priority ?? 4) || byDue(a, b)),
     done: tasks.filter((e) => e.done),

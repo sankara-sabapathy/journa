@@ -10,8 +10,11 @@ import type { EntryType } from './db/types'
 import { useI18n, type T } from './i18n'
 import type { MessageKey } from './i18n/en'
 import { OfflineBar, PwaBanners } from './pwa/PwaBits'
-import { Lists, Notes, Tasks } from './screens/Lists'
 import { Today, TodayKolam } from './screens/Today'
+
+const Lists = lazy(() => import('./screens/Lists').then((m) => ({ default: m.Lists })))
+const Notes = lazy(() => import('./screens/Lists').then((m) => ({ default: m.Notes })))
+const Tasks = lazy(() => import('./screens/Lists').then((m) => ({ default: m.Tasks })))
 
 const EntryEditor = lazy(() => import('./screens/EntryEditor').then((m) => ({ default: m.EntryEditor })))
 const Search = lazy(() => import('./screens/Search').then((m) => ({ default: m.Search })))
