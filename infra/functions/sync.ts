@@ -63,12 +63,11 @@ const userPk = (sub: string): string => `USER#${sub}`
 const SYNC_PULL_LIMIT = 500
 
 const pushedItemSchema = z.object({
-  kind: z.enum(['plain', 'encrypted']),
+  kind: z.literal('encrypted'),
   id: z.string().min(1).max(256),
   updatedAt: z.number().int().nonnegative(),
   deletedAt: z.number().int().nonnegative(),
-  entry: z.unknown().optional(),
-  cipher: z.unknown().optional(),
+  cipher: z.object({ ivB64: z.string().min(1), dataB64: z.string().min(1) }).passthrough(),
 })
 
 const syncBodySchema = z.object({
@@ -303,7 +302,7 @@ export const handler = async (event: LambdaEvent): Promise<{
               updatedAt: item.updatedAt,
               deletedAt: item.deletedAt,
               seq,
-              payload: item.kind === 'plain' ? item.entry ?? null : item.cipher ?? null,
+              payload: item.cipher,
             },
             ConditionExpression: 'attribute_not_exists(updatedAt) OR updatedAt <= :u',
             ExpressionAttributeValues: { ':u': item.updatedAt },
@@ -333,9 +332,7 @@ export const handler = async (event: LambdaEvent): Promise<{
     const pull = (pullOut.Items ?? []).map((row) => {
       const rowSeq = typeof row['seq'] === 'number' ? (row['seq'] as number) : cursor
       if (rowSeq > nextCursor) nextCursor = rowSeq
-      return row['kind'] === 'plain'
-        ? { kind: 'plain', id: row['id'], updatedAt: row['updatedAt'], deletedAt: row['deletedAt'], entry: row['payload'] }
-        : { kind: 'encrypted', id: row['id'], updatedAt: row['updatedAt'], deletedAt: row['deletedAt'], cipher: row['payload'] }
+      return { kind: 'encrypted', id: row['id'], updatedAt: row['updatedAt'], deletedAt: row['deletedAt'], cipher: row['payload'] }
     })
 
     return response(200, { cursor: nextCursor, pull, applied, skipped })

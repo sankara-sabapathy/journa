@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { entrySchema } from '../backup/format'
+import type { Entry } from '../db/types'
 
 /** Cognito `sub`, branded so user ids never mix with other string ids. */
 export type UserId = string & { readonly __brand: 'UserId' }
@@ -16,22 +16,13 @@ export const sealedEntrySchema = z.object({
 
 export type SealedEntry = z.infer<typeof sealedEntrySchema>
 
-export const syncItemSchema = z.discriminatedUnion('kind', [
-  z.object({
-    kind: z.literal('plain'),
-    id: z.string().min(1),
-    updatedAt: z.number().int().nonnegative(),
-    deletedAt: z.number().int().nonnegative(),
-    entry: entrySchema,
-  }),
-  z.object({
-    kind: z.literal('encrypted'),
-    id: z.string().min(1),
-    updatedAt: z.number().int().nonnegative(),
-    deletedAt: z.number().int().nonnegative(),
-    cipher: sealedEntrySchema,
-  }),
-])
+export const syncItemSchema = z.object({
+  kind: z.literal('encrypted'),
+  id: z.string().min(1),
+  updatedAt: z.number().int().nonnegative(),
+  deletedAt: z.number().int().nonnegative(),
+  cipher: sealedEntrySchema,
+})
 
 export type SyncItem = z.infer<typeof syncItemSchema>
 
@@ -55,8 +46,8 @@ export type SyncConflictReason = 'concurrent-edit' | 'edit-after-delete' | 'same
 export interface SyncConflict {
   readonly id: string
   readonly reason: SyncConflictReason
-  readonly local: SyncItem | null
-  readonly incoming: SyncItem
+  readonly local: Entry | null
+  readonly incoming: Entry
 }
 
 export type AccountState =

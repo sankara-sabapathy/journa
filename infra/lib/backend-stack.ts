@@ -95,14 +95,6 @@ export class JournaBackendStack extends Stack {
     })
 
     const codeBucket = s3.Bucket.fromBucketName(this, 'WebCodeBucket', `journa-webcode-${this.account}`)
-    codeBucket.addToResourcePolicy(
-      new iam.PolicyStatement({
-        principals: [new iam.ServicePrincipal('lambda.amazonaws.com')],
-        actions: ['s3:GetObject', 's3:GetObjectVersion'],
-        resources: [`arn:aws:s3:::journa-webcode-${this.account}/*`],
-        conditions: { StringEquals: { 'aws:SourceAccount': this.account } },
-      }),
-    )
 
     const codeKey = new cdk.CfnParameter(this, 'WebCodeKey', {
       type: 'String',

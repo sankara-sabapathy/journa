@@ -52,11 +52,14 @@ jobs:
         run: |
           npm run build:web
           cd dist-web && zip ../web.zip index.js && cd ..
-          aws s3 cp web.zip s3://journa-webcode-${{ env.AWS_ACCOUNT_ID }}/web-${{ github.sha }}.zip
+          HASH=$(sha256sum web.zip | cut -d' ' -f1 | cut -c1-16)
+          echo "bundle_key=web-$HASH.zip" >> "$GITHUB_OUTPUT"
+          aws s3 cp web.zip s3://journa-webcode-${{ env.AWS_ACCOUNT_ID }}/web-$HASH.zip
+        id: webbundle
         working-directory: infra
 
       - name: Deploy backend stack
-        run: npx cdk deploy JournaBackendStack --require-approval never --parameters JournaBackendStack:WebCodeKey=web-${{ github.sha }}.zip
+        run: npx cdk deploy JournaBackendStack --require-approval never --parameters JournaBackendStack:WebCodeKey=${{ steps.webbundle.outputs.bundle_key }}
         working-directory: infra
 
       - name: Read backend outputs

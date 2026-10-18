@@ -193,32 +193,40 @@ export async function syncNow(): Promise<boolean> {
         }),
     )
 
-    const cursor = await rememberedCursor()
-    const requestBody = syncRequestSchema.parse({ cursor, push })
-    const response = await fetch(`${baseUrl.replace(/\/$/, '')}/v1/sync`, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        authorization: `Bearer ${freshCredentials.accessToken}`,
-      },
-      body: JSON.stringify(requestBody),
-    })
-    if (response.status === 401) {
-      const body = (await response.json().catch(() => null)) as { error?: unknown } | null
-      if (body?.error === 'account-deleted') {
-        await clearStoredCredentials()
-        update({ status: 'signed-out' })
-        return false
+    // Pull in rounds until the server has nothing new: a fresh device with
+    // years of entries needs several capped pages to converge in one sync.
+    const MAX_PULL_ROUNDS = 6
+    let rounds = 0
+    for (;;) {
+      const cursor = await rememberedCursor()
+      const requestBody = syncRequestSchema.parse({ cursor, push: rounds === 0 ? push : [] })
+      const response = await fetch(`${baseUrl.replace(/\/$/, '')}/v1/sync`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          authorization: `Bearer ${freshCredentials.accessToken}`,
+        },
+        body: JSON.stringify(requestBody),
+      })
+      if (response.status === 401) {
+        const body = (await response.json().catch(() => null)) as { error?: unknown } | null
+        if (body?.error === 'account-deleted') {
+          await clearStoredCredentials()
+          update({ status: 'signed-out' })
+          return false
+        }
+        throw new Error('sync-http-401')
       }
-      throw new Error('sync-http-401')
-    }
-    if (!response.ok) throw new Error(`sync-http-${response.status}`)
+      if (!response.ok) throw new Error(`sync-http-${response.status}`)
 
-    const json = await response.json()
-    const parsed = syncResponseSchema.parse(json)
-    await putSettings(CURSOR_KEY, parsed.cursor)
-    await applyPulledEntries(entries, parsed.pull, dek)
-    if (push.length > 0) await db.outbox.bulkDelete(push.map((item) => item.id))
+      const json = await response.json()
+      const parsed = syncResponseSchema.parse(json)
+      await putSettings(CURSOR_KEY, parsed.cursor)
+      await applyPulledEntries(entries, parsed.pull, dek)
+      if (rounds === 0 && push.length > 0) await db.outbox.bulkDelete(push.map((item) => item.id))
+      rounds += 1
+      if (parsed.pull.length === 0 || rounds >= MAX_PULL_ROUNDS) break
+    }
     const nextLastSyncAt = Date.now()
     await putSettings(ACCOUNT_KEY, { lastSyncAt: nextLastSyncAt })
     const dirtyCount = await db.outbox.count()
@@ -246,10 +254,6 @@ async function applyPulledEntries(
   const decrypted: Entry[] = []
   let skipped = 0
   for (const item of pulled) {
-    if (item.kind === 'plain') {
-      decrypted.push(item.entry)
-      continue
-    }
     try {
       decrypted.push(await openEntry(dek, item.cipher))
     } catch {

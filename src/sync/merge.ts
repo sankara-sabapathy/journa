@@ -1,5 +1,5 @@
 import type { Entry } from '../db/types'
-import type { SyncConflict, SyncConflictReason, SyncItem } from './types'
+import type { SyncConflict, SyncConflictReason } from './types'
 
 export const SYNC_CONFLICT_WINDOW_MS = 60_000
 
@@ -33,14 +33,9 @@ export function selectWinningEntries(localById: ReadonlyMap<string, Entry>, inco
   return winners
 }
 
-function syncItemEntry(item: SyncItem): Entry | null {
-  if (item.kind === 'plain') return item.entry
-  return null
-}
-
 export function detectSyncConflicts(
-  localById: ReadonlyMap<string, SyncItem>,
-  incoming: readonly SyncItem[],
+  localById: ReadonlyMap<string, Entry>,
+  incoming: readonly Entry[],
   windowMs: number = SYNC_CONFLICT_WINDOW_MS,
 ): SyncConflict[] {
   const conflicts: SyncConflict[] = []
@@ -60,25 +55,11 @@ export function detectSyncConflicts(
   return conflicts
 }
 
-function classifyConflictReason(local: SyncItem, incoming: SyncItem): SyncConflictReason | null {
-  const localEntry = syncItemEntry(local)
-  const remoteEntry = syncItemEntry(incoming)
+function classifyConflictReason(local: Entry, incoming: Entry): SyncConflictReason | null {
   const deletedStateDiffers = local.deletedAt !== incoming.deletedAt
 
-  if (localEntry && remoteEntry) {
-    if (deletedStateDiffers) return 'edit-after-delete'
-    const textChanged = localEntry.title !== remoteEntry.title || localEntry.body !== remoteEntry.body
-    if (textChanged) return 'concurrent-edit'
-    return null
-  }
-
   if (deletedStateDiffers) return 'edit-after-delete'
-  if (local.updatedAt === incoming.updatedAt && local.updatedAt > 0) return 'same-update'
+  const textChanged = local.title !== incoming.title || local.body !== incoming.body
+  if (textChanged) return 'concurrent-edit'
   return null
-}
-
-export function syncItemsById(items: readonly SyncItem[]): Map<string, SyncItem> {
-  const byId = new Map<string, SyncItem>()
-  for (const item of items) byId.set(item.id, item)
-  return byId
 }
