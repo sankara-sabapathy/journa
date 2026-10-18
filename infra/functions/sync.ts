@@ -37,6 +37,60 @@ function subOf(event: LambdaEvent): string | null {
   return typeof sub === 'string' && sub.length > 0 ? sub : null
 }
 
+function issuerOf(event: LambdaEvent): string {
+  const claims = event.requestContext?.authorizer?.jwt?.claims
+  const iss = claims?.['iss']
+  return typeof iss === 'string' && iss.length > 0 ? iss : 'unknown-issuer'
+}
+
+function verifiedEmailOf(event: LambdaEvent): string | null {
+  const claims = event.requestContext?.authorizer?.jwt?.claims
+  const verified = claims?.['email_verified']
+  const email = claims?.['email']
+  if ((verified === true || verified === 'true') && typeof email === 'string' && email.length > 0) return email
+  return null
+}
+
+const idpPk = (iss: string, sub: string): string => `IDP#${iss}#${sub}`
+const emailPk = (email: string): string => `EMAIL#${email.toLowerCase()}`
+
+function newUserId(): string {
+  return crypto.randomUUID()
+}
+
+/**
+ * Stable internal user id, decoupled from any single user pool. First call
+ * mints one and links the pool's sub; a later pool can link by verified email,
+ * so pool migration keeps every row and every S3 object in place.
+ */
+async function resolveUserId(event: LambdaEvent): Promise<string | null> {
+  const sub = subOf(event)
+  if (!sub) return null
+  const iss = issuerOf(event)
+  const email = verifiedEmailOf(event)
+  const table = tableName()
+  if (!table) return null
+
+  const direct = await ddb.send(new GetCommand({ TableName: table, Key: { pk: idpPk(iss, sub), sk: 'LINK' } }))
+  if (typeof direct.Item?.['userId'] === 'string') return direct.Item['userId'] as string
+
+  if (email) {
+    const byEmail = await ddb.send(new GetCommand({ TableName: table, Key: { pk: emailPk(email), sk: 'LINK' } }))
+    if (typeof byEmail.Item?.['userId'] === 'string') {
+      const userId = byEmail.Item['userId'] as string
+      await ddb.send(new PutCommand({ TableName: table, Item: { pk: idpPk(iss, sub), sk: 'LINK', userId } }))
+      return userId
+    }
+  }
+
+  const userId = newUserId()
+  await ddb.send(new PutCommand({ TableName: table, Item: { pk: idpPk(iss, sub), sk: 'LINK', userId } }))
+  if (email) {
+    await ddb.send(new PutCommand({ TableName: table, Item: { pk: emailPk(email), sk: 'LINK', userId } }))
+  }
+  return userId
+}
+
 function deviceIdOf(event: LambdaEvent): string | null {
   const fromParams = event.pathParameters?.['id']
   if (fromParams && fromParams.length > 0) return fromParams
@@ -85,7 +139,7 @@ export const handler = async (event: LambdaEvent): Promise<{
   }
 
   if (method === 'POST' && path === '/v1/backups/presign') {
-    const sub = subOf(event)
+    const sub = await resolveUserId(event)
     if (!sub) return response(401, { error: 'unauthorized' })
     const bucket = backupsBucket()
     if (!bucket) return response(500, { error: 'misconfigured' })
@@ -101,7 +155,7 @@ export const handler = async (event: LambdaEvent): Promise<{
   }
 
   if (method === 'GET' && path === '/v1/backups') {
-    const sub = subOf(event)
+    const sub = await resolveUserId(event)
     if (!sub) return response(401, { error: 'unauthorized' })
     const bucket = backupsBucket()
     if (!bucket) return response(500, { error: 'misconfigured' })
@@ -114,7 +168,7 @@ export const handler = async (event: LambdaEvent): Promise<{
   }
 
   if (method === 'DELETE' && path.startsWith('/v1/backups/')) {
-    const sub = subOf(event)
+    const sub = await resolveUserId(event)
     if (!sub) return response(401, { error: 'unauthorized' })
     const bucket = backupsBucket()
     if (!bucket) return response(500, { error: 'misconfigured' })
@@ -125,7 +179,7 @@ export const handler = async (event: LambdaEvent): Promise<{
   }
 
   if (path === '/v1/devices' || path.startsWith('/v1/devices/')) {
-    const sub = subOf(event)
+    const sub = await resolveUserId(event)
     if (!sub) return response(401, { error: 'unauthorized' })
     const table = tableName()
     if (!table) return response(500, { error: 'misconfigured' })
