@@ -29,13 +29,105 @@ import {
   revokeDevice,
   type DeviceRecord,
 } from '../sync/devices'
-import { syncEngine, useAccountState } from '../sync/engine'
+import { syncEngine, useAccountState, useConflicts } from '../sync/engine'
 
 function download(name: string, data: BlobPart, type: string) {
   const url = URL.createObjectURL(new Blob([data], { type }))
   const a = Object.assign(document.createElement('a'), { href: url, download: name })
   a.click()
   setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
+type DiffRow = { kind: 'same' | 'del' | 'add'; text: string }
+
+function diffLines(before: string, after: string): DiffRow[] {
+  const a = before.split('\n')
+  const b = after.split('\n')
+  const dp: number[][] = Array.from({ length: a.length + 1 }, () => new Array(b.length + 1).fill(0))
+  for (let i = a.length - 1; i >= 0; i--) {
+    for (let j = b.length - 1; j >= 0; j--) {
+      dp[i][j] = a[i] === b[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1])
+    }
+  }
+  const rows: DiffRow[] = []
+  let i = 0
+  let j = 0
+  while (i < a.length && j < b.length) {
+    if (a[i] === b[j]) {
+      rows.push({ kind: 'same', text: a[i] })
+      i++
+      j++
+    } else if (dp[i + 1][j] >= dp[i][j + 1]) {
+      rows.push({ kind: 'del', text: a[i] })
+      i++
+    } else {
+      rows.push({ kind: 'add', text: b[j] })
+      j++
+    }
+  }
+  while (i < a.length) rows.push({ kind: 'del', text: a[i++] })
+  while (j < b.length) rows.push({ kind: 'add', text: b[j++] })
+  return rows
+}
+
+function ConflictsPanel() {
+  const { t } = useI18n()
+  const conflicts = useConflicts()
+  const [busyId, setBusyId] = useState<string | null>(null)
+  if (conflicts.length === 0) return null
+
+  async function run(id: string, fn: (id: string) => Promise<unknown>) {
+    setBusyId(id)
+    try {
+      await fn(id)
+    } catch (err) {
+      toast(err instanceof Error ? err.message : String(err))
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  return (
+    <section className="panel" aria-labelledby="h-conflicts">
+      <h2 id="h-conflicts">{t('conflicts.title')}</h2>
+      <p className="muted">{t('conflicts.hint')}</p>
+      {conflicts.map((c) => (
+        <article key={c.id} className="conflict">
+          <h3>{c.local?.title || c.incoming.title || t('entry.untitled')}</h3>
+          <div className="conflict-cols">
+            <div>
+              <h4>{t('conflicts.mine')}</h4>
+              <pre className="conflict-text">{c.local ? `${c.local.title}\n${c.local.body}` : ''}</pre>
+            </div>
+            <div>
+              <h4>{t('conflicts.theirs')}</h4>
+              <pre className="conflict-text">{`${c.incoming.title}\n${c.incoming.body}`}</pre>
+            </div>
+          </div>
+          {c.local && (
+            <ul className="conflict-diff" aria-label={t('conflicts.title')}>
+              {diffLines(c.local.body, c.incoming.body).map((row, n) => (
+                <li key={n} data-kind={row.kind}>
+                  {row.text || ' '}
+                </li>
+              ))}
+            </ul>
+          )}
+          <div className="btn-row">
+            <Button size="lg" variant="outline" loading={busyId === c.id} onClick={() => void run(c.id, syncEngine.resolveConflictKeepLocal)}>
+              {t('conflicts.keepMine')}
+            </Button>
+            <Button size="lg" variant="outline" loading={busyId === c.id} onClick={() => void run(c.id, syncEngine.resolveConflictKeepIncoming)}>
+              {t('conflicts.keepTheirs')}
+            </Button>
+            <Button size="lg" variant="ghost" loading={busyId === c.id} onClick={() => void run(c.id, syncEngine.resolveConflictKeepBoth)}>
+              {t('conflicts.keepBoth')}
+            </Button>
+          </div>
+        </article>
+      ))}
+    </section>
+  )
 }
 
 function AccountPanel() {
@@ -587,6 +679,7 @@ export function Settings() {
   const [theme, setTheme] = useTheme()
   return (
     <div className="settings">
+      <ConflictsPanel />
       <AccountPanel />
       <DevicesPanel />
       <BackupPanel />

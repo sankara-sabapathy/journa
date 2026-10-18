@@ -1,11 +1,11 @@
 import { useSyncExternalStore } from 'react'
 import { db } from '../db/db'
-import { onChange } from '../db/repo'
+import { newId, onChange } from '../db/repo'
 import type { Entry } from '../db/types'
 import { openEntry, sealEntry } from './deviceKeys'
 import { resolveDataKey } from './devices'
-import { selectWinningEntries } from './merge'
-import { syncRequestSchema, syncResponseSchema, type AccountState, type SyncItem, type UserId } from './types'
+import { detectSyncConflicts, selectWinningEntries } from './merge'
+import { syncRequestSchema, syncResponseSchema, type AccountState, type SyncConflict, type SyncItem, type UserId } from './types'
 import * as auth from './auth'
 
 const TOKENS_KEY = 'auth.tokens'
@@ -260,13 +260,88 @@ async function applyPulledEntries(
       skipped += 1
     }
   }
-  const winning = selectWinningEntries(localById, decrypted)
+  const conflicts = detectSyncConflicts(localById, decrypted)
+  stashConflicts(conflicts)
+  const conflictedIds = new Set(conflicts.map((c) => c.id))
+  const auto = decrypted.filter((e) => !conflictedIds.has(e.id))
+  const winning = selectWinningEntries(localById, auto)
   if (skipped > 0 && typeof window !== 'undefined') {
     window.console.warn(`skipped ${skipped} cloud entries encrypted with another key`)
   }
   for (const entry of winning) {
     await db.entries.put(entry)
   }
+}
+
+let pendingConflicts: SyncConflict[] = []
+const conflictListeners = new Set<() => void>()
+
+function emitConflicts() {
+  for (const listener of conflictListeners) listener()
+}
+
+function stashConflicts(found: readonly SyncConflict[]): void {
+  if (found.length === 0) return
+  const ids = new Set(found.map((c) => c.id))
+  pendingConflicts = [...pendingConflicts.filter((c) => !ids.has(c.id)), ...found]
+  emitConflicts()
+}
+
+function dropConflict(id: string): void {
+  if (!pendingConflicts.some((c) => c.id === id)) return
+  pendingConflicts = pendingConflicts.filter((c) => c.id !== id)
+  emitConflicts()
+}
+
+export function getConflicts(): SyncConflict[] {
+  return pendingConflicts
+}
+
+export function subscribeConflicts(fn: () => void): () => void {
+  conflictListeners.add(fn)
+  return () => conflictListeners.delete(fn)
+}
+
+export function useConflicts(): SyncConflict[] {
+  return useSyncExternalStore(subscribeConflicts, getConflicts, getConflicts)
+}
+
+/** Keep the server version; the local edit is discarded. */
+export async function resolveConflictKeepIncoming(id: string): Promise<void> {
+  const conflict = pendingConflicts.find((c) => c.id === id)
+  if (!conflict) return
+  await db.entries.put(conflict.incoming)
+  dropConflict(id)
+}
+
+/** Keep this device's version and push it back so it wins everywhere. */
+export async function resolveConflictKeepLocal(id: string): Promise<void> {
+  const conflict = pendingConflicts.find((c) => c.id === id)
+  if (!conflict?.local) return
+  const updatedAt = Date.now()
+  await db.entries.update(id, { updatedAt })
+  await db.outbox.put({ id, updatedAt })
+  dropConflict(id)
+}
+
+/** Keep both: incoming stays, and the local version is saved as a conflict copy. */
+export async function resolveConflictKeepBoth(id: string): Promise<void> {
+  const conflict = pendingConflicts.find((c) => c.id === id)
+  if (!conflict?.local) return
+  const now = Date.now()
+  await db.entries.put(conflict.incoming)
+  const copy: Entry = {
+    ...conflict.local,
+    id: newId(),
+    title: conflict.local.title ? `${conflict.local.title} (conflict)` : 'Conflict copy',
+    tags: [...conflict.local.tags, 'conflict'],
+    createdAt: now,
+    updatedAt: now,
+    deletedAt: 0,
+  }
+  await db.entries.add(copy)
+  await db.outbox.put({ id: copy.id, updatedAt: now })
+  dropConflict(id)
 }
 
 export function getState(): AccountState {
@@ -292,6 +367,11 @@ export const syncEngine = {
   registerPasskey,
   signOut,
   syncNow,
+  getConflicts,
+  subscribeConflicts,
+  resolveConflictKeepIncoming,
+  resolveConflictKeepLocal,
+  resolveConflictKeepBoth,
 }
 
 onChange(() => {
