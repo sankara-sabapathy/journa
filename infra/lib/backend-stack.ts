@@ -137,7 +137,7 @@ export class JournaBackendStack extends Stack {
             TABLE_NAME: table.tableName,
             BACKUPS_BUCKET_NAME: backups.bucketName,
             USER_POOL_ID: userPool.userPoolId,
-            AWS_REGION: this.region,
+            JOURNA_AWS_REGION: this.region,
           },
           TelemetryConfig: {
             LoggingConfig: { ApplicationLogLevel: 'INFO', SystemLogLevel: 'WARN' },

@@ -4,7 +4,7 @@ import { serve } from '@hono/node-server'
 import { createRemoteJWKSet, jwtVerify } from 'jose'
 import { handler } from './sync'
 
-const REGION = process.env.AWS_REGION ?? 'ap-south-1'
+const REGION = process.env.JOURNA_AWS_REGION ?? 'ap-south-1'
 const POOL_ID = process.env.USER_POOL_ID ?? ''
 const ISSUER = `https://cognito-idp.${REGION}.amazonaws.com/${POOL_ID}`
 const JWKS = createRemoteJWKSet(new URL(`${ISSUER}/.well-known/jwks.json`))
