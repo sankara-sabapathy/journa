@@ -3,6 +3,7 @@ import { DynamoDBDocumentClient, GetCommand, PutCommand, QueryCommand, UpdateCom
 import { DeleteObjectCommand, DeleteObjectsCommand, ListObjectsV2Command, PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { AdminDeleteUserCommand, CognitoIdentityProviderClient } from '@aws-sdk/client-cognito-identity-provider'
+import { z } from 'zod'
 
 export interface LambdaEvent {
   rawPath?: string
@@ -56,7 +57,24 @@ const backupPrefix = (sub: string): string => `backups/${sub}/`
 
 const deviceSk = (id: string): string => `DEVICE#${id}`
 const dekSk = (id: string): string => `DEKWRAP#${id}`
+const entrySk = (id: string): string => `ENTRY#${id}`
 const userPk = (sub: string): string => `USER#${sub}`
+
+const SYNC_PULL_LIMIT = 500
+
+const pushedItemSchema = z.object({
+  kind: z.enum(['plain', 'encrypted']),
+  id: z.string().min(1).max(256),
+  updatedAt: z.number().int().nonnegative(),
+  deletedAt: z.number().int().nonnegative(),
+  entry: z.unknown().optional(),
+  cipher: z.unknown().optional(),
+})
+
+const syncBodySchema = z.object({
+  cursor: z.number().int().nonnegative(),
+  push: z.array(pushedItemSchema).max(100),
+})
 
 function subOf(event: LambdaEvent): string | null {
   const claims = event.requestContext?.authorizer?.jwt?.claims
@@ -241,20 +259,86 @@ export const handler = async (event: LambdaEvent): Promise<{
   const path = event.rawPath ?? '/'
 
   if (method === 'POST' && path === '/v1/sync') {
-    let request: unknown = {}
+    const auth = await resolveUserId(event)
+    if (!auth) return response(401, { error: 'unauthorized' })
+    if ('deleted' in auth) return response(401, { error: 'account-deleted' })
+    const userId = auth.userId
+    const table = tableName()
+    if (!table) return response(500, { error: 'misconfigured' })
+
+    let body: unknown
     try {
-      request = event.body ? JSON.parse(event.body) : {}
+      body = event.body ? JSON.parse(event.body) : {}
     } catch {
       return response(400, { error: 'invalid-body' })
     }
+    const parsedBody = syncBodySchema.safeParse(body)
+    if (!parsedBody.success) return response(400, { error: 'invalid-body' })
+    const { cursor, push } = parsedBody.data
+    const pk = userPk(userId)
 
-    return response(200, {
-      cursor: 0,
-      pull: [],
-      applied: 0,
-      skipped: 0,
-      received: Array.isArray((request as { push?: unknown }).push) ? (request as { push: unknown[] }).push.length : 0,
+    let applied = 0
+    let skipped = 0
+    for (const item of push) {
+      const meta = await ddb.send(
+        new UpdateCommand({
+          TableName: table,
+          Key: { pk, sk: 'META' },
+          UpdateExpression: 'ADD #counter :one',
+          ExpressionAttributeNames: { '#counter': 'counter' },
+          ExpressionAttributeValues: { ':one': 1 },
+          ReturnValues: 'UPDATED_NEW',
+        }),
+      )
+      const seq = typeof meta.Attributes?.['counter'] === 'number' ? (meta.Attributes['counter'] as number) : 0
+      try {
+        await ddb.send(
+          new PutCommand({
+            TableName: table,
+            Item: {
+              pk,
+              sk: entrySk(item.id),
+              kind: item.kind,
+              id: item.id,
+              updatedAt: item.updatedAt,
+              deletedAt: item.deletedAt,
+              seq,
+              payload: item.kind === 'plain' ? item.entry ?? null : item.cipher ?? null,
+            },
+            ConditionExpression: 'attribute_not_exists(updatedAt) OR updatedAt <= :u',
+            ExpressionAttributeValues: { ':u': item.updatedAt },
+          }),
+        )
+        applied += 1
+      } catch (error) {
+        if (typeof error === 'object' && error !== null && (error as { name?: string }).name === 'ConditionalCheckFailedException') {
+          skipped += 1
+          continue
+        }
+        throw error
+      }
+    }
+
+    const pullOut = await ddb.send(
+      new QueryCommand({
+        TableName: table,
+        IndexName: 'bySeq',
+        KeyConditionExpression: 'pk = :pk AND seq > :cursor',
+        ExpressionAttributeValues: { ':pk': pk, ':cursor': cursor },
+        ScanIndexForward: true,
+        Limit: SYNC_PULL_LIMIT,
+      }),
+    )
+    let nextCursor = cursor
+    const pull = (pullOut.Items ?? []).map((row) => {
+      const rowSeq = typeof row['seq'] === 'number' ? (row['seq'] as number) : cursor
+      if (rowSeq > nextCursor) nextCursor = rowSeq
+      return row['kind'] === 'plain'
+        ? { kind: 'plain', id: row['id'], updatedAt: row['updatedAt'], deletedAt: row['deletedAt'], entry: row['payload'] }
+        : { kind: 'encrypted', id: row['id'], updatedAt: row['updatedAt'], deletedAt: row['deletedAt'], cipher: row['payload'] }
     })
+
+    return response(200, { cursor: nextCursor, pull, applied, skipped })
   }
 
   if (method === 'POST' && path === '/v1/backups/presign') {

@@ -186,6 +186,7 @@ export async function syncNow(): Promise<boolean> {
       outboxRows
         .map((row) => byId.get(row.id))
         .filter((entry): entry is Entry => Boolean(entry))
+        .slice(0, 100)
         .map(async (entry) => {
           const cipher = await sealEntry(dek, entry)
           return { kind: 'encrypted', id: entry.id, updatedAt: entry.updatedAt, deletedAt: entry.deletedAt, cipher }
@@ -215,6 +216,7 @@ export async function syncNow(): Promise<boolean> {
 
     const json = await response.json()
     const parsed = syncResponseSchema.parse(json)
+    await putSettings(CURSOR_KEY, parsed.cursor)
     await applyPulledEntries(entries, parsed.pull, dek)
     if (push.length > 0) await db.outbox.bulkDelete(push.map((item) => item.id))
     const nextLastSyncAt = Date.now()
