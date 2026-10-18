@@ -94,18 +94,12 @@ export class JournaBackendStack extends Stack {
       ],
     })
 
-    const codeBucket = new s3.Bucket(this, 'WebFunctionCodeBucket', {
-      bucketName: `journa-webcode-${this.account}`,
-      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
-      encryption: s3.BucketEncryption.S3_MANAGED,
-      enforceSSL: true,
-      versioned: true,
-    })
+    const codeBucket = s3.Bucket.fromBucketName(this, 'WebCodeBucket', `journa-webcode-${this.account}`)
     codeBucket.addToResourcePolicy(
       new iam.PolicyStatement({
         principals: [new iam.ServicePrincipal('lambda.amazonaws.com')],
         actions: ['s3:GetObject', 's3:GetObjectVersion'],
-        resources: [`${codeBucket.bucketArn}/*`],
+        resources: [`arn:aws:s3:::journa-webcode-${this.account}/*`],
         conditions: { StringEquals: { 'aws:SourceAccount': this.account } },
       }),
     )
