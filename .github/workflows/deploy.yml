@@ -1,4 +1,4 @@
-name: Deploy frontend
+name: Deploy
 
 on:
   push:
@@ -11,7 +11,7 @@ on:
       - 'package-lock.json'
       - 'vite.config.ts'
       - 'infra/**'
-      - '.github/workflows/deploy-frontend.yml'
+      - '.github/workflows/deploy.yml'
 
 permissions:
   id-token: write
@@ -19,6 +19,7 @@ permissions:
 
 env:
   AWS_REGION: ap-south-1
+  AWS_ACCOUNT_ID: '612850243659'
 
 jobs:
   deploy:
@@ -40,17 +41,30 @@ jobs:
         run: |
           npm ci
           npm run build
+          npm run build:web
         working-directory: infra
 
       - name: Bootstrap CDK (idempotent)
-        run: npx cdk bootstrap aws://612850243659/ap-south-1
+        run: npx cdk bootstrap aws://${{ env.AWS_ACCOUNT_ID }}/ap-south-1
         working-directory: infra
+
+      - name: Deploy backend stack
+        run: npx cdk deploy JournaBackendStack --require-approval never
+        working-directory: infra
+
+      - name: Read backend outputs
+        id: backend
+        run: |
+          API_URL=$(aws cloudformation describe-stacks --stack-name JournaBackendStack --query "Stacks[0].Outputs[?OutputKey=='BackendApiUrl'].OutputValue" --output text)
+          CLIENT_ID=$(aws cloudformation describe-stacks --stack-name JournaBackendStack --query "Stacks[0].Outputs[?OutputKey=='UserPoolClientId'].OutputValue" --output text)
+          echo "api_url=$API_URL" >> "$GITHUB_OUTPUT"
+          echo "client_id=$CLIENT_ID" >> "$GITHUB_OUTPUT"
 
       - name: Deploy frontend stack
-        run: npx cdk deploy JournaFrontendStack --require-approval never --outputs-file cdk.outputs.json
+        run: npx cdk deploy JournaFrontendStack --require-approval never
         working-directory: infra
 
-      - name: Read stack outputs
+      - name: Read frontend outputs
         id: outputs
         run: |
           BUCKET=$(aws cloudformation describe-stacks --stack-name JournaFrontendStack --query "Stacks[0].Outputs[?OutputKey=='SiteBucketName'].OutputValue" --output text)
@@ -62,6 +76,10 @@ jobs:
         run: |
           npm ci
           npm run build
+        env:
+          VITE_JOURNA_API_URL: ${{ steps.backend.outputs.api_url }}
+          VITE_COGNITO_REGION: ap-south-1
+          VITE_COGNITO_CLIENT_ID: ${{ steps.backend.outputs.client_id }}
 
       - name: Sync to S3
         run: aws s3 sync dist/ "s3://${{ steps.outputs.outputs.bucket }}" --delete
