@@ -1,5 +1,7 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb'
 import { DynamoDBDocumentClient, GetCommand, PutCommand, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb'
+import { DeleteObjectCommand, ListObjectsV2Command, PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 
 export interface LambdaEvent {
   rawPath?: string
@@ -18,7 +20,12 @@ export interface LambdaEvent {
 }
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}), { marshallOptions: { removeUndefinedValues: true } })
+const s3 = new S3Client({})
 const tableName = (): string => process.env.TABLE_NAME ?? ''
+const backupsBucket = (): string => process.env.BACKUPS_BUCKET_NAME ?? ''
+
+const BACKUP_NAME_RE = /^journa-backup-\d{8}-\d{6}\.(json|jbak)$/
+const backupPrefix = (sub: string): string => `backups/${sub}/`
 
 const deviceSk = (id: string): string => `DEVICE#${id}`
 const dekSk = (id: string): string => `DEKWRAP#${id}`
@@ -78,17 +85,42 @@ export const handler = async (event: LambdaEvent): Promise<{
   }
 
   if (method === 'POST' && path === '/v1/backups/presign') {
-    return response(200, {
-      uploadUrl: 'https://example.invalid/not-implemented',
-      uploadMethod: 'PUT',
-    })
+    const sub = subOf(event)
+    if (!sub) return response(401, { error: 'unauthorized' })
+    const bucket = backupsBucket()
+    if (!bucket) return response(500, { error: 'misconfigured' })
+    const parsed = parseBody(event)
+    const name = parsed.ok && typeof parsed.value['name'] === 'string' ? parsed.value['name'] : ''
+    if (!BACKUP_NAME_RE.test(name)) return response(400, { error: 'invalid-backup-name' })
+    const uploadUrl = await getSignedUrl(
+      s3,
+      new PutObjectCommand({ Bucket: bucket, Key: `${backupPrefix(sub)}${name}`, ContentType: 'application/json' }),
+      { expiresIn: 300 },
+    )
+    return response(200, { uploadUrl, uploadMethod: 'PUT' })
   }
 
   if (method === 'GET' && path === '/v1/backups') {
-    return response(200, { backups: [] })
+    const sub = subOf(event)
+    if (!sub) return response(401, { error: 'unauthorized' })
+    const bucket = backupsBucket()
+    if (!bucket) return response(500, { error: 'misconfigured' })
+    const out = await s3.send(new ListObjectsV2Command({ Bucket: bucket, Prefix: backupPrefix(sub) }))
+    const backups = (out.Contents ?? [])
+      .map((o) => (o.Key ?? '').slice(backupPrefix(sub).length))
+      .filter((name) => BACKUP_NAME_RE.test(name))
+      .sort()
+    return response(200, { backups })
   }
 
   if (method === 'DELETE' && path.startsWith('/v1/backups/')) {
+    const sub = subOf(event)
+    if (!sub) return response(401, { error: 'unauthorized' })
+    const bucket = backupsBucket()
+    if (!bucket) return response(500, { error: 'misconfigured' })
+    const name = decodeURIComponent(path.slice('/v1/backups/'.length))
+    if (!BACKUP_NAME_RE.test(name)) return response(400, { error: 'invalid-backup-name' })
+    await s3.send(new DeleteObjectCommand({ Bucket: bucket, Key: `${backupPrefix(sub)}${name}` }))
     return response(204, '')
   }
 
@@ -125,6 +157,20 @@ export const handler = async (event: LambdaEvent): Promise<{
       if (!parsed.ok || typeof parsed.value['wrap'] !== 'string' || (parsed.value['wrap'] as string).length === 0) {
         return response(400, { error: 'invalid-wrap' })
       }
+      let wrap: unknown
+      try {
+        wrap = JSON.parse(parsed.value['wrap'] as string)
+      } catch {
+        return response(400, { error: 'invalid-wrap' })
+      }
+      if (
+        typeof wrap !== 'object' ||
+        wrap === null ||
+        (wrap as Record<string, unknown>)['recipientId'] !== id ||
+        typeof (wrap as Record<string, unknown>)['dataB64'] !== 'string'
+      ) {
+        return response(400, { error: 'wrap-device-mismatch' })
+      }
       await ddb.send(
         new PutCommand({
           TableName: table,
@@ -152,7 +198,15 @@ export const handler = async (event: LambdaEvent): Promise<{
       const id = deviceIdOf(event)
       if (!id || !validDeviceId(id)) return response(400, { error: 'invalid-device-id' })
       const parsed = parseBody(event)
-      if (!parsed.ok || typeof parsed.value['publicKeyJwk'] !== 'object' || parsed.value['publicKeyJwk'] === null) {
+      if (!parsed.ok) return response(400, { error: 'invalid-public-key' })
+      const publicKeyJwk = parsed.value['publicKeyJwk'] as Record<string, unknown> | null
+      if (
+        typeof publicKeyJwk !== 'object' ||
+        publicKeyJwk === null ||
+        publicKeyJwk['kty'] !== 'EC' ||
+        typeof publicKeyJwk['x'] !== 'string' ||
+        typeof publicKeyJwk['y'] !== 'string'
+      ) {
         return response(400, { error: 'invalid-public-key' })
       }
       const label = typeof parsed.value['label'] === 'string' ? (parsed.value['label'] as string).slice(0, 128) : ''

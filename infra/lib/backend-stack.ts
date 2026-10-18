@@ -8,6 +8,7 @@ import * as dynamodb from 'aws-cdk-lib/aws-dynamodb'
 import * as s3 from 'aws-cdk-lib/aws-s3'
 import * as lambda from 'aws-cdk-lib/aws-lambda'
 import * as nodejs from 'aws-cdk-lib/aws-lambda-nodejs'
+import * as wafv2 from 'aws-cdk-lib/aws-wafv2'
 import * as path from 'node:path'
 import { Construct } from 'constructs'
 
@@ -66,6 +67,7 @@ export class JournaBackendStack extends Stack {
       }),
       partitionKey: { name: 'pk', type: dynamodb.AttributeType.STRING },
       sortKey: { name: 'sk', type: dynamodb.AttributeType.STRING },
+      encryption: dynamodb.TableEncryptionV2.awsManagedKey(),
       localSecondaryIndexes: [
         {
           indexName: 'bySeq',
@@ -99,6 +101,7 @@ export class JournaBackendStack extends Stack {
       architecture: lambda.Architecture.ARM_64,
       memorySize: 256,
       timeout: Duration.seconds(15),
+      reservedConcurrentExecutions: 20,
       environment: {
         TABLE_NAME: table.tableName,
         BACKUPS_BUCKET_NAME: backups.bucketName,
@@ -122,7 +125,7 @@ export class JournaBackendStack extends Stack {
     const httpApi = new apigwv2.HttpApi(this, 'JournaApi', {
       apiName: `${scopeTag}-sync-api`,
       corsPreflight: {
-        allowOrigins: ['*'],
+        allowOrigins: ['https://d22yyqrvp3iqn6.cloudfront.net'],
         allowMethods: [
           apigwv2.CorsHttpMethod.GET,
           apigwv2.CorsHttpMethod.POST,
@@ -194,5 +197,35 @@ export class JournaBackendStack extends Stack {
     new cdk.CfnOutput(this, 'BackendApiUrl', { value: httpApi.apiEndpoint })
     new cdk.CfnOutput(this, 'EntriesTableName', { value: table.tableName })
     new cdk.CfnOutput(this, 'BackupsBucketName', { value: backups.bucketName })
+
+    const webAcl = new wafv2.CfnWebACL(this, 'JournaApiWebAcl', {
+      scope: 'REGIONAL',
+      defaultAction: { allow: {} },
+      visibilityConfig: {
+        cloudWatchMetricsEnabled: true,
+        metricName: 'journa-api',
+        sampledRequestsEnabled: true,
+      },
+      rules: [
+        {
+          name: 'RateLimitPerIp',
+          priority: 0,
+          action: { block: {} },
+          statement: {
+            rateBasedStatement: { limit: 1000, aggregateKeyType: 'IP' },
+          },
+          visibilityConfig: {
+            cloudWatchMetricsEnabled: true,
+            metricName: 'journa-api-rate-limit',
+            sampledRequestsEnabled: true,
+          },
+        },
+      ],
+    })
+
+    new wafv2.CfnWebACLAssociation(this, 'JournaApiWebAclAssociation', {
+      resourceArn: `arn:aws:apigateway:${this.region}::/apis/${httpApi.apiId}/stages/$default`,
+      webAclArn: webAcl.attrArn,
+    })
   }
 }
