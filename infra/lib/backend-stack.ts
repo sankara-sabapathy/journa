@@ -4,7 +4,6 @@ import * as cognito from 'aws-cdk-lib/aws-cognito'
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb'
 import * as iam from 'aws-cdk-lib/aws-iam'
 import * as s3 from 'aws-cdk-lib/aws-s3'
-import * as s3Assets from 'aws-cdk-lib/aws-s3-assets'
 import { Construct } from 'constructs'
 
 const AUTOMATIC_BACKUP_RETENTION = Duration.days(90)
@@ -95,8 +94,25 @@ export class JournaBackendStack extends Stack {
       ],
     })
 
-    const code = new s3Assets.Asset(this, 'WebFunctionCode', {
-      path: 'dist-web',
+    const codeBucket = new s3.Bucket(this, 'WebFunctionCodeBucket', {
+      bucketName: `journa-webcode-${this.account}`,
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      encryption: s3.BucketEncryption.S3_MANAGED,
+      enforceSSL: true,
+      versioned: true,
+    })
+    codeBucket.addToResourcePolicy(
+      new iam.PolicyStatement({
+        principals: [new iam.ServicePrincipal('lambda.amazonaws.com')],
+        actions: ['s3:GetObject', 's3:GetObjectVersion'],
+        resources: [`${codeBucket.bucketArn}/*`],
+        conditions: { StringEquals: { 'aws:SourceAccount': this.account } },
+      }),
+    )
+
+    const codeKey = new cdk.CfnParameter(this, 'WebCodeKey', {
+      type: 'String',
+      description: 'S3 key of the web function bundle inside the code bucket (uploaded by CI)',
     })
 
     const executionRole = new iam.Role(this, 'WebFunctionExecutionRole', {
@@ -125,7 +141,7 @@ export class JournaBackendStack extends Stack {
         FunctionName: webFunction.ref,
         BuildConfig: {
           CodeConfig: {
-            S3Object: { Bucket: code.s3BucketName, Key: code.s3ObjectKey },
+            S3Object: { Bucket: codeBucket.bucketName, Key: codeKey.valueAsString },
           },
           RuntimeConfig: { Runtime: 'nodejs24.x' },
         },

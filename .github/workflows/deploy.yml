@@ -48,8 +48,15 @@ jobs:
         run: npx cdk bootstrap aws://${{ env.AWS_ACCOUNT_ID }}/ap-south-1
         working-directory: infra
 
+      - name: Build web function bundle
+        run: |
+          npm run build:web
+          cd dist-web && zip ../web.zip index.js && cd ..
+          aws s3 cp web.zip s3://journa-webcode-${{ env.AWS_ACCOUNT_ID }}/web-${{ github.sha }}.zip
+        working-directory: infra
+
       - name: Deploy backend stack
-        run: npx cdk deploy JournaBackendStack --require-approval never
+        run: npx cdk deploy JournaBackendStack --require-approval never --parameters JournaBackendStack:WebCodeKey=web-${{ github.sha }}.zip
         working-directory: infra
 
       - name: Read backend outputs
