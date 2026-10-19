@@ -188,6 +188,7 @@ export const en = {
   'conflicts.keepMine': 'Keep mine',
   'conflicts.keepTheirs': 'Keep incoming',
   'conflicts.keepBoth': 'Keep both',
+  'conflicts.announced': '{count, plural, one {# conflicting edit needs} other {# conflicting edits need}} your review',
   'devices.title': 'Devices',
   'devices.hint': 'Each signed-in device holds its own key. Approve a new device from one you trust, or use a recovery key.',
   'devices.thisDevice': 'This device',

@@ -90,6 +90,11 @@ function ConflictsPanel() {
   }
 
   return (
+    <>
+      <p role="status" className="sr-only">
+        {conflicts.length > 0 ? t('conflicts.announced', { count: conflicts.length }) : ''}
+      </p>
+      {conflicts.length === 0 ? null : (
     <section className="panel" aria-labelledby="h-conflicts">
       <h2 id="h-conflicts">{t('conflicts.title')}</h2>
       <p className="muted">{t('conflicts.hint')}</p>
@@ -128,7 +133,9 @@ function ConflictsPanel() {
           </div>
         </article>
       ))}
-    </section>
+      </section>
+      )}
+    </>
   )
 }
 

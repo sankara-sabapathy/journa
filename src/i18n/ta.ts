@@ -183,6 +183,7 @@ export const ta: Messages = {
   'conflicts.keepMine': 'என்னுடையதை வை',
   'conflicts.keepTheirs': 'வந்ததை வை',
   'conflicts.keepBoth': 'இரண்டையும் வை',
+  'conflicts.announced': '{count, plural, one {# முரண்பாடு} other {# முரண்பாடுகள்}} உங்கள் பார்வைக்காகக் காத்திருக்கின்றன',
   'devices.title': 'சாதனங்கள்',
   'devices.hint': 'உள்நுழைந்த ஒவ்வொரு சாதனமும் தன் சாவியை வைத்திருக்கும். நம்பிக்கையான சாதனத்திலிருந்து புதிய சாதனத்தை அங்கீகரிக்கவும் அல்லது மீட்பு சாவியைப் பயன்படுத்தவும்.',
   'devices.thisDevice': 'இந்தச் சாதனம்',

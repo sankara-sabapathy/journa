@@ -190,6 +190,7 @@ export const hi: Messages = {
   'conflicts.keepMine': 'मेरी रखें',
   'conflicts.keepTheirs': 'आने वाली रखें',
   'conflicts.keepBoth': 'दोनों रखें',
+  'conflicts.announced': '{count, plural, one {# विरोधी संपादन} other {# विरोधी संपादन}} आपकी समीक्षा चाहते हैं',
   'devices.title': 'डिवाइस',
   'devices.hint': 'हर साइन-इन डिवाइस की अपनी कुंजी होती है। किसी भरोसेमंद डिवाइस से नया डिवाइस स्वीकृत करें, या रिकवरी कुंजी इस्तेमाल करें।',
   'devices.thisDevice': 'यह डिवाइस',
