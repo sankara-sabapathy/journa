@@ -14,6 +14,7 @@ import { Segmented } from '../components/Segmented'
 import { MarkdownToolbar } from '../components/MarkdownToolbar'
 import { TagInput } from '../components/TagInput'
 import { useI18n } from '../i18n'
+import type { MessageKey } from '../i18n/en'
 
 const Markdown = lazy(() => import('../components/Markdown'))
 
@@ -58,7 +59,7 @@ export function EntryEditor({ id }: { id: string }) {
 }
 
 function Editor({ initial }: { initial: Entry }) {
-  const { t } = useI18n()
+  const { t, fmt } = useI18n()
   const save = useAutosave(initial.id)
   const [title, setTitle] = useState(initial.title)
   const [body, setBody] = useState(initial.body)
@@ -68,7 +69,8 @@ function Editor({ initial }: { initial: Entry }) {
   const [priority, setPriority] = useState<Priority | 0>(initial.priority ?? 0)
   const [done, setDone] = useState(Boolean(initial.done))
   const [items, setItems] = useState<ChecklistItem[]>(initial.items ?? [])
-  const [preview, setPreview] = useState(false)
+  const [mode, setMode] = useState<'edit' | 'split' | 'preview'>('edit')
+  const [editing, setEditing] = useState(!initial.title && !initial.body && !(initial.items?.length))
   const [newItem, setNewItem] = useState('')
   const titleRef = useRef<HTMLInputElement>(null)
   const bodyRef = useRef<HTMLTextAreaElement>(null)
@@ -91,6 +93,43 @@ function Editor({ initial }: { initial: Entry }) {
 
   const doneCount = items.filter((i) => i.done).length
 
+  const viewTitle =
+    title ||
+    (initial.type === 'journal' && initial.date
+      ? fmt.date(new Date(`${initial.date}T00:00`), { weekday: 'long', day: 'numeric', month: 'long' })
+      : t('entry.untitled'))
+
+  const editorBox = (
+    <>
+      <MarkdownToolbar
+        target={bodyRef}
+        onChange={(next) => {
+          setBody(next)
+          save({ body: next })
+        }}
+      />
+      <textarea
+        id="body"
+        ref={bodyRef}
+        className="body-input"
+        value={body}
+        placeholder={t('entry.bodyPlaceholder')}
+        style={initial.type === 'note' ? undefined : { minHeight: '20vh' }}
+        onChange={(e) => {
+          setBody(e.target.value)
+          save({ body: e.target.value })
+        }}
+      />
+    </>
+  )
+  const previewBox = (
+    <div className="panel" style={{ padding: 'var(--s4)', minHeight: '20vh' }}>
+      <Suspense fallback={<p className="muted">{t('common.loading')}</p>}>
+        <Markdown source={body} />
+      </Suspense>
+    </div>
+  )
+
   return (
     <article className="editor">
       <div className="editor-bar">
@@ -99,6 +138,15 @@ function Editor({ initial }: { initial: Entry }) {
           {t('entry.back')}
         </Button>
         <div className="btn-row">
+          {editing ? (
+            <Button size="lg" variant="outline" onClick={() => setEditing(false)}>
+              {t('entry.doneEditing')}
+            </Button>
+          ) : (
+            <Button size="lg" variant="outline" onClick={() => setEditing(true)}>
+              {t('entry.edit')}
+            </Button>
+          )}
           <IconButton
             label={pinned ? t('entry.unpin') : t('entry.pin')}
             onClick={() => {
@@ -115,7 +163,9 @@ function Editor({ initial }: { initial: Entry }) {
         </div>
       </div>
 
-      <div className="field">
+      {editing ? (
+        <>
+          <div className="field">
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s2)' }}>
           {initial.type === 'task' && (
             <TaskCheck
@@ -272,43 +322,25 @@ function Editor({ initial }: { initial: Entry }) {
           </label>
           <Segmented
             label={t('entry.body')}
-            value={preview ? 'preview' : 'edit'}
-            onChange={(v) => setPreview(v === 'preview')}
+            value={mode}
+            onChange={setMode}
             className="w-auto"
             options={[
               { value: 'edit', label: t('entry.edit') },
+              { value: 'split', label: t('entry.split') },
               { value: 'preview', label: t('entry.preview') },
             ]}
           />
         </div>
-        {preview ? (
-          <div className="panel" style={{ padding: 'var(--s4)', minHeight: '20vh' }}>
-            <Suspense fallback={<p className="muted">{t('common.loading')}</p>}>
-              <Markdown source={body} />
-            </Suspense>
+        {mode === 'preview' ? (
+          previewBox
+        ) : mode === 'split' ? (
+          <div className="split-pane">
+            {editorBox}
+            {previewBox}
           </div>
         ) : (
-          <>
-            <MarkdownToolbar
-              target={bodyRef}
-              onChange={(next) => {
-                setBody(next)
-                save({ body: next })
-              }}
-            />
-            <textarea
-              id="body"
-              ref={bodyRef}
-              className="body-input"
-              value={body}
-              placeholder={t('entry.bodyPlaceholder')}
-              style={initial.type === 'note' ? undefined : { minHeight: '20vh' }}
-              onChange={(e) => {
-                setBody(e.target.value)
-                save({ body: e.target.value })
-              }}
-            />
-          </>
+          editorBox
         )}
       </div>
 
@@ -319,6 +351,80 @@ function Editor({ initial }: { initial: Entry }) {
           save({ tags: next }, true)
         }}
       />
+        </>
+      ) : (
+        <>
+          <div className="field">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s2)' }}>
+              {initial.type === 'task' && (
+                <TaskCheck
+                  className="m-0"
+                  checked={done}
+                  onChange={(v) => {
+                    setDone(v)
+                    save({ done: v }, true)
+                  }}
+                  label={t(done ? 'task.markOpen' : 'task.markDone', { title: title || t('entry.untitled') })}
+                />
+              )}
+              <h1 className="title-view">{viewTitle}</h1>
+            </div>
+          </div>
+
+          {initial.type === 'task' && (due || priority !== 0) && (
+            <p className="muted">
+              {due ? `${t('task.due')}: ${fmt.date(new Date(`${due}T00:00`), { day: 'numeric', month: 'short', year: 'numeric' })}` : ''}
+              {due && priority !== 0 ? ' · ' : ''}
+              {priority !== 0 ? t(`task.priority.${priority}` as MessageKey) : ''}
+            </p>
+          )}
+
+          {initial.type === 'checklist' && items.length > 0 && (
+            <section aria-labelledby="items-h-view">
+              <div className="section-head">
+                <h2 id="items-h-view">{t('list.items')}</h2>
+                <span className="list-progress">
+                  <ProgressKolam done={doneCount} total={items.length} />
+                  {t('list.progress', { done: doneCount, total: items.length })}
+                </span>
+              </div>
+              <div className="panel">
+                <ul className="rows items">
+                  {items.map((item) => (
+                    <li key={item.id} className={`row${item.done ? ' done' : ''}`}>
+                      <TaskCheck
+                        className="m-0"
+                        checked={item.done}
+                        label={item.text}
+                        onChange={() => setItemsAndSave(items.map((x) => (x.id === item.id ? { ...x, done: !x.done } : x)))}
+                      />
+                      <span className="item-text">{item.text}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </section>
+          )}
+
+          {body ? (
+            <div className="panel" style={{ padding: 'var(--s4)' }}>
+              <Suspense fallback={<p className="muted">{t('common.loading')}</p>}>
+                <Markdown source={body} />
+              </Suspense>
+            </div>
+          ) : null}
+
+          {tags.length > 0 && (
+            <div className="tag-input" aria-label={t('entry.tags')}>
+              {tags.map((tag) => (
+                <span className="tag" key={tag}>
+                  #{tag}
+                </span>
+              ))}
+            </div>
+          )}
+        </>
+      )}
     </article>
   )
 }

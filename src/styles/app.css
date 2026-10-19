@@ -527,6 +527,23 @@ dialog [data-slot='button'],
   color: var(--leaf);
   background: color-mix(in srgb, var(--leaf) 10%, transparent);
 }
+.title-view {
+  margin: 0;
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+.split-pane {
+  display: grid;
+  gap: var(--s3);
+}
+@media (min-width: 900px) {
+  .split-pane {
+    grid-template-columns: 1fr 1fr;
+    align-items: start;
+  }
+}
 
 .panel {
   background: var(--surface);
