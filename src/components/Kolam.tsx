@@ -1,7 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react'
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react'
 import { IconButton } from './IconButton'
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { href } from '../app/router'
 import { toISODate } from '../db/date'
 import { repo } from '../db/repo'
@@ -42,10 +42,12 @@ interface Props {
   selected: string
   onMonth: (delta: number) => void
   onYear: (delta: number) => void
+  onPick: (year: number, month: number) => void
 }
 
-export function Kolam({ year, month, selected, onMonth, onYear }: Props) {
+export function Kolam({ year, month, selected, onMonth, onYear, onPick }: Props) {
   const { t, fmt } = useI18n()
+  const [picking, setPicking] = useState(false)
   const cells = useMemo(() => monthGrid(year, month), [year, month])
   const from = cells[0].date
   const to = cells[cells.length - 1].date
@@ -67,11 +69,36 @@ export function Kolam({ year, month, selected, onMonth, onYear }: Props) {
     }
   }
 
+  const now = new Date()
+  const thisYear = now.getFullYear()
+  const thisMonth = now.getMonth()
+  useEffect(() => {
+    if (!picking) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setPicking(false)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [picking])
+  const monthNames = Array.from({ length: 12 }, (_, m) => fmt.date(new Date(year, m, 1), { month: 'long' }))
+  const isFutureMonth = (y: number, m: number) => y > thisYear || (y === thisYear && m > thisMonth)
+
   return (
     <section className="kolam-band" aria-labelledby="kolam-title">
       <div className="kolam-inner">
         <div className="kolam-head">
-          <h2 id="kolam-title">{monthName}</h2>
+          <h2 id="kolam-title">
+            <button
+              type="button"
+              className="kolam-title-button"
+              aria-expanded={picking}
+              aria-label={`${monthName}, ${t('kolam.pick')}`}
+              onClick={() => setPicking((v) => !v)}
+            >
+              {monthName}
+              <ChevronDown aria-hidden />
+            </button>
+          </h2>
           <div className="kolam-nav">
             <IconButton label={t('kolam.prevYear')} className="on-kaavi" onClick={() => onYear(-1)}>
               <ChevronsLeft aria-hidden />
@@ -97,6 +124,41 @@ export function Kolam({ year, month, selected, onMonth, onYear }: Props) {
             </IconButton>
           </div>
         </div>
+        {picking && (
+          <div className="kolam-picker" role="group" aria-label={t('kolam.pick')}>
+            <div className="kolam-picker-year">
+              <IconButton label={t('kolam.prevYear')} className="on-kaavi" onClick={() => onYear(-1)}>
+                <ChevronsLeft aria-hidden />
+              </IconButton>
+              <span aria-live="polite">{year}</span>
+              <IconButton
+                label={t('kolam.nextYear')}
+                className="on-kaavi"
+                onClick={() => onYear(1)}
+                disabled={year + 1 > new Date().getFullYear()}
+              >
+                <ChevronsRight aria-hidden />
+              </IconButton>
+            </div>
+            <div className="kolam-picker-months">
+              {monthNames.map((name, m) => (
+                <button
+                  key={m}
+                  type="button"
+                  className="kolam-picker-month"
+                  aria-current={m === month ? 'date' : undefined}
+                  disabled={isFutureMonth(year, m)}
+                  onClick={() => {
+                    onPick(year, m)
+                    setPicking(false)
+                  }}
+                >
+                  {name}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         <p className="kolam-count">{t('kolam.written', { count: written.size })}</p>
         <div className="kolam-weekdays" aria-hidden>
           {weekdays.map((w, i) => (

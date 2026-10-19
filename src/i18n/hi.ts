@@ -226,6 +226,7 @@ export const hi: Messages = {
   'kolam.next': 'अगला महीना',
   'kolam.prevYear': 'पिछला साल',
   'kolam.nextYear': 'अगला साल',
+  'kolam.pick': 'महीना और साल चुनें',
   'pwa.installHint': 'Journa इंस्टॉल करें ताकि यह ऐप की तरह खुले और ब्राउज़र इसका डेटा सुरक्षित रखे।',
   'app.skip': 'सामग्री पर जाएँ',
   'nav.main': 'मुख्य',

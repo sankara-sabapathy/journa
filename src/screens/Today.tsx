@@ -27,6 +27,7 @@ export function TodayKolam({ date }: { date: string }) {
         setYm({ y: n.getFullYear(), m: n.getMonth() })
       }}
       onYear={(delta) => setYm({ y: ym.y + delta, m: ym.m })}
+      onPick={(y, m) => setYm({ y, m })}
     />
   )
 }

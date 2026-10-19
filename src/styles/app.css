@@ -363,6 +363,63 @@ dialog [data-slot='button'],
   font-size: var(--t-sm);
   color: rgb(251 248 242 / 0.82);
 }
+.kolam-title-button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s1);
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  padding: 0;
+  border-radius: var(--r-sm);
+}
+.kolam-title-button:focus-visible {
+  outline: 2px solid var(--turmeric);
+  outline-offset: 2px;
+}
+.kolam-picker {
+  display: grid;
+  gap: var(--s2);
+  padding: var(--s3);
+  margin-bottom: var(--s2);
+  border: 1px solid rgb(251 248 242 / 0.25);
+  border-radius: var(--r-md);
+  background: rgb(0 0 0 / 0.12);
+}
+.kolam-picker-year {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s3);
+  font-weight: 700;
+  font-size: var(--t-lg);
+}
+.kolam-picker-months {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--s1);
+}
+.kolam-picker-month {
+  min-height: 44px;
+  border: 1px solid rgb(251 248 242 / 0.25);
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.kolam-picker-month[aria-current='date'] {
+  background: var(--turmeric);
+  border-color: var(--turmeric);
+  color: #1e1a18;
+  font-weight: 700;
+}
+.kolam-picker-month:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
 .kolam-head h2 {
   font-size: var(--t-sm);
   font-weight: 700;
