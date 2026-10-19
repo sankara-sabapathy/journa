@@ -96,6 +96,7 @@ export const en = {
   'search.results': '{count, plural, one {# result} other {# results}}',
 
   'trash.empty': 'Trash is empty.',
+  'trash.count': '{count, plural, one {# item} other {# items}}',
   'trash.restore': 'Restore',
   'trash.emptyAll': 'Empty Trash',
   'trash.confirm': 'Permanently delete {count, plural, one {# entry} other {# entries}}? This can’t be undone.',

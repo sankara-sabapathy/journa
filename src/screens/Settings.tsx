@@ -8,6 +8,7 @@ import { href } from '../app/router'
 import { useTheme, type Theme } from '../app/theme'
 import { toast } from '../app/toasts'
 import { WrongPassphraseError } from '../backup/crypto'
+import { repo } from '../db/repo'
 import { backupFileName, backupFileText, exportMarkdownZip, importBackup, readBackupFile, type ImportMode } from '../backup/exportImport'
 import { BackupFormatError, type Backup } from '../backup/format'
 import { getBackupSettings, saveBackupSettings, scheduler } from '../backup/scheduler'
@@ -501,6 +502,7 @@ function BackupPanel() {
 
 function DataPanel() {
   const { t } = useI18n()
+  const trashCount = useLiveQuery(() => repo.listTrash().then((rows) => rows.length), []) ?? 0
   const fileRef = useRef<HTMLInputElement>(null)
   const [pending, setPending] = useState<Backup | null>(null)
   const [mode, setMode] = useState<ImportMode>('merge')
@@ -564,6 +566,10 @@ function DataPanel() {
         <Button size="lg" variant="outline" onClick={() => fileRef.current?.click()}>
           <Upload aria-hidden />
           {t('data.import')}
+        </Button>
+        <Button size="lg" variant="outline" render={<a href={href({ name: 'trash' })} />}>
+          <Trash2 aria-hidden />
+          {t('nav.trash')} · {t('trash.count', { count: trashCount })}
         </Button>
         <input
           ref={fileRef}
@@ -709,10 +715,6 @@ export function Settings() {
       <section className="panel" aria-labelledby="h-about">
         <h2 id="h-about">{t('settings.about')}</h2>
         <p>{t('settings.aboutText')}</p>
-        <Button size="lg" variant="outline" className="justify-self-start" render={<a href={href({ name: 'trash' })} />}>
-          <Trash2 aria-hidden />
-          {t('nav.trash')}
-        </Button>
       </section>
     </div>
   )

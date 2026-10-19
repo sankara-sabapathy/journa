@@ -98,6 +98,7 @@ export const ta: Messages = {
   'search.results': '{count, plural, one {# முடிவு} other {# முடிவுகள்}}',
 
   'trash.empty': 'குப்பை காலியாக உள்ளது.',
+  'trash.count': '{count, plural, one {# உருப்படி} other {# உருப்படிகள்}}',
   'trash.restore': 'மீட்டெடு',
   'trash.emptyAll': 'குப்பையைக் காலி செய்',
   'trash.confirm': '{count, plural, one {# பதிவை} other {# பதிவுகளை}} நிரந்தரமாக நீக்கவா? இதைத் திரும்பப் பெற முடியாது.',

@@ -98,6 +98,7 @@ export const hi: Messages = {
   'search.results': '{count, plural, one {# नतीजा} other {# नतीजे}}',
 
   'trash.empty': 'ट्रैश खाली है।',
+  'trash.count': '{count, plural, one {# आइटम} other {# आइटम}}',
   'trash.restore': 'वापस लाएँ',
   'trash.emptyAll': 'ट्रैश खाली करें',
   'trash.confirm': '{count, plural, one {# प्रविष्टि} other {# प्रविष्टियाँ}} हमेशा के लिए मिटाएँ? यह वापस नहीं होगा।',
