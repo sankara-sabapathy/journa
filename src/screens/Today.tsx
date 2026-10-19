@@ -86,7 +86,7 @@ function JournalEditor({ date, entry }: { date: string; entry: Entry | undefined
 
 export function Today({ date }: { date: string }) {
   const { t } = useI18n()
-  const journal = useLiveQuery(async () => ({ e: await repo.journalFor(date) }), [date])
+  const journal = useLiveQuery(async () => ({ d: date, e: await repo.journalFor(date) }), [date])
   const tasks = useLiveQuery(() => repo.list('task'), []) ?? []
   const lists = useLiveQuery(() => repo.list('checklist'), []) ?? []
   const today = toISODate()
@@ -102,7 +102,11 @@ export function Today({ date }: { date: string }) {
           <h2 id="h-journal">{t('today.journal')}</h2>
           <a href={href({ name: 'journal' })}>{t('today.allJournals')}</a>
         </div>
-        {journal ? <JournalEditor key={date} date={date} entry={journal.e} /> : <div className="panel journal-card" style={{ minHeight: 160 }} />}
+        {journal && journal.d === date ? (
+          <JournalEditor key={date} date={date} entry={journal.e} />
+        ) : (
+          <div className="panel journal-card" style={{ minHeight: 160 }} />
+        )}
       </section>
 
       {date === today && (

@@ -19,13 +19,15 @@ import type { MessageKey } from '../i18n/en'
 const Markdown = lazy(() => import('../components/Markdown'))
 
 /** Saves a field shortly after the last keystroke, and on unmount. */
-function useAutosave(id: string) {
+function useAutosave(id: string, onFlush?: () => void) {
   const patch = useRef<Partial<Entry>>({})
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
   const flush = () => {
     const p = patch.current
     patch.current = {}
-    return Object.keys(p).length ? repo.update(id, p) : Promise.resolve()
+    return (Object.keys(p).length ? repo.update(id, p) : Promise.resolve()).then(() => {
+      if (Object.keys(p).length) onFlush?.()
+    })
   }
   useEffect(
     () => () => {
@@ -45,9 +47,9 @@ function useAutosave(id: string) {
 }
 
 export function EntryEditor({ id }: { id: string }) {
-  const result = useLiveQuery(async () => ({ e: await repo.get(id) }), [id])
+  const result = useLiveQuery(async () => ({ i: id, e: await repo.get(id) }), [id])
   const { t } = useI18n()
-  if (!result) return <p className="muted">{t('common.loading')}</p>
+  if (!result || result.i !== id) return <p className="muted">{t('common.loading')}</p>
   if (!result.e || result.e.deletedAt) {
     return (
       <p className="muted">
@@ -60,7 +62,8 @@ export function EntryEditor({ id }: { id: string }) {
 
 function Editor({ initial }: { initial: Entry }) {
   const { t, fmt } = useI18n()
-  const save = useAutosave(initial.id)
+  const [savedAt, setSavedAt] = useState<number | null>(null)
+  const save = useAutosave(initial.id, () => setSavedAt(Date.now()))
   const [title, setTitle] = useState(initial.title)
   const [body, setBody] = useState(initial.body)
   const [tags, setTags] = useState(initial.tags)
@@ -70,7 +73,8 @@ function Editor({ initial }: { initial: Entry }) {
   const [done, setDone] = useState(Boolean(initial.done))
   const [items, setItems] = useState<ChecklistItem[]>(initial.items ?? [])
   const [mode, setMode] = useState<'edit' | 'split' | 'preview'>('edit')
-  const [editing, setEditing] = useState(!initial.title && !initial.body && !(initial.items?.length))
+  // New entries — and journals, which are written daily, not read — open ready to type.
+  const [editing, setEditing] = useState(initial.type === 'journal' || (!initial.title && !initial.body && !(initial.items?.length)))
   const [newItem, setNewItem] = useState('')
   const titleRef = useRef<HTMLInputElement>(null)
   const bodyRef = useRef<HTMLTextAreaElement>(null)
@@ -137,6 +141,9 @@ function Editor({ initial }: { initial: Entry }) {
           <ArrowLeft aria-hidden />
           {t('entry.back')}
         </Button>
+        <span className="muted whitespace-nowrap" aria-live="polite">
+          {savedAt ? t('entry.edited', { time: fmt.date(savedAt, { hour: 'numeric', minute: '2-digit' }) }) : ''}
+        </span>
         <div className="btn-row">
           {editing ? (
             <Button size="lg" variant="outline" onClick={() => setEditing(false)}>

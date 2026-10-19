@@ -6,10 +6,12 @@ import { folderTarget } from './backup/targets/folderTarget'
 import { I18nProvider } from './i18n'
 import { requestPersistence } from './pwa/persistStorage'
 import { syncEngine } from './sync/engine'
+import { applyAccent, readAccent } from './app/accent'
 import './styles/tokens.css'
 import './styles/coss.css'
 import './styles/app.css'
 
+applyAccent(readAccent())
 void requestPersistence()
 void scheduler.start(folderTarget)
 void syncEngine.start()

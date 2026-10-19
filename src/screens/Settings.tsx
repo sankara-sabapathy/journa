@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogDescription, DialogFooter, DialogHeader, DialogPanel, DialogPopup, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { href } from '../app/router'
+import { ACCENTS, useAccent } from '../app/accent'
 import { useTheme, type Theme } from '../app/theme'
 import { toast } from '../app/toasts'
 import { WrongPassphraseError } from '../backup/crypto'
@@ -685,6 +686,7 @@ function StoragePanel() {
 export function Settings() {
   const { t, locale, setLocale } = useI18n()
   const [theme, setTheme] = useTheme()
+  const [accent, setAccent] = useAccent()
   return (
     <div className="settings">
       <ConflictsPanel />
@@ -711,6 +713,29 @@ export function Settings() {
           onChange={setTheme}
           options={(['system', 'light', 'dark'] as Theme[]).map((x) => ({ value: x, label: t(`settings.theme.${x}`) }))}
         />
+        <div className="field">
+          <span className="label" id="accent-label">{t('settings.accent')}</span>
+          <div className="swatches" role="group" aria-labelledby="accent-label">
+            {ACCENTS.map((a) => (
+              <button
+                key={a.id}
+                type="button"
+                className="swatch"
+                style={{ backgroundColor: a.kaavi }}
+                aria-label={t(`accent.${a.id}`)}
+                aria-describedby={`swatch-tip-${a.id}`}
+                aria-pressed={accent === a.id}
+                data-tip={t(`accent.${a.id}`)}
+                title={t(`accent.${a.id}`)}
+                onClick={() => setAccent(a.id)}
+              >
+                <span role="tooltip" id={`swatch-tip-${a.id}`} className="sr-only">
+                  {t(`accent.${a.id}`)}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
       </section>
       <section className="panel" aria-labelledby="h-about">
         <h2 id="h-about">{t('settings.about')}</h2>

@@ -194,6 +194,13 @@ export const ta: Messages = {
   'devices.import': 'மீட்பு சாவியைப் பயன்படுத்து',
   'devices.showRecovery': 'மீட்பு சாவியைக் காட்டு',
   'devices.recoveryHint': 'இந்தச் சாவியைப் பாதுகாப்பான இடத்தில் சேமிக்கவும். புதிய சாதனத்தில் ஒத்திசைத்த பதிவுகளை இது திறக்கும்.',
+  'settings.accent': 'அழுத்த நிறம்',
+  'accent.kaavi': 'காவி சிவப்பு',
+  'accent.leaf': 'இலை பச்சை',
+  'accent.indigo': 'கருநீலம்',
+  'accent.plum': 'பிளம்',
+  'accent.teal': 'டீல்',
+  'accent.slate': 'சாம்பல்',
   'settings.about': 'பற்றி',
   'settings.aboutText': 'Journa இலவசம்; அனைத்தையும் இந்தச் சாதனத்திலேயே வைக்கிறது. கணக்கு தேவையில்லை, கண்காணிப்பு இல்லை.',
 
