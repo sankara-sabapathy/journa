@@ -6,6 +6,7 @@ import { repo } from '../db/repo'
 import type { Entry } from '../db/types'
 import { EntryRow, Empty, TaskRow } from '../components/EntryRows'
 import { Kolam } from '../components/Kolam'
+import { MarkdownToolbar } from '../components/MarkdownToolbar'
 import { useI18n } from '../i18n'
 
 export function wordCount(s: string) {
@@ -35,6 +36,7 @@ function JournalEditor({ date, entry }: { date: string; entry: Entry | undefined
   const [saved, setSaved] = useState<number | null>(entry?.updatedAt ?? null)
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
   const pending = useRef<string | null>(null)
+  const textRef = useRef<HTMLTextAreaElement>(null)
 
   async function flush() {
     if (pending.current === null) return
@@ -50,8 +52,18 @@ function JournalEditor({ date, entry }: { date: string; entry: Entry | undefined
   const isToday = date === toISODate()
   return (
     <div className="panel journal-card">
+      <MarkdownToolbar
+        target={textRef}
+        onChange={(next) => {
+          setText(next)
+          pending.current = next
+          clearTimeout(timer.current)
+          timer.current = setTimeout(() => void flush(), 500)
+        }}
+      />
       <textarea
         id="journal-text"
+        ref={textRef}
         aria-label={t('today.journal')}
         value={text}
         placeholder={t('today.journalPlaceholder')}
@@ -88,6 +100,7 @@ export function Today({ date }: { date: string }) {
       <section className="section" aria-labelledby="h-journal">
         <div className="section-head">
           <h2 id="h-journal">{t('today.journal')}</h2>
+          <a href={href({ name: 'journal' })}>{t('today.allJournals')}</a>
         </div>
         {journal ? <JournalEditor key={date} date={date} entry={journal.e} /> : <div className="panel journal-card" style={{ minHeight: 160 }} />}
       </section>

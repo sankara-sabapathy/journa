@@ -11,6 +11,7 @@ import { IconButton } from '../components/IconButton'
 import { ProgressKolam } from '../components/ProgressKolam'
 import { TaskCheck } from '../components/TaskCheck'
 import { Segmented } from '../components/Segmented'
+import { MarkdownToolbar } from '../components/MarkdownToolbar'
 import { TagInput } from '../components/TagInput'
 import { useI18n } from '../i18n'
 
@@ -70,6 +71,7 @@ function Editor({ initial }: { initial: Entry }) {
   const [preview, setPreview] = useState(false)
   const [newItem, setNewItem] = useState('')
   const titleRef = useRef<HTMLInputElement>(null)
+  const bodyRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
     if (!initial.title && !initial.body) titleRef.current?.focus()
@@ -286,17 +288,27 @@ function Editor({ initial }: { initial: Entry }) {
             </Suspense>
           </div>
         ) : (
-          <textarea
-            id="body"
-            className="body-input"
-            value={body}
-            placeholder={t('entry.bodyPlaceholder')}
-            style={initial.type === 'note' ? undefined : { minHeight: '20vh' }}
-            onChange={(e) => {
-              setBody(e.target.value)
-              save({ body: e.target.value })
-            }}
-          />
+          <>
+            <MarkdownToolbar
+              target={bodyRef}
+              onChange={(next) => {
+                setBody(next)
+                save({ body: next })
+              }}
+            />
+            <textarea
+              id="body"
+              ref={bodyRef}
+              className="body-input"
+              value={body}
+              placeholder={t('entry.bodyPlaceholder')}
+              style={initial.type === 'note' ? undefined : { minHeight: '20vh' }}
+              onChange={(e) => {
+                setBody(e.target.value)
+                save({ body: e.target.value })
+              }}
+            />
+          </>
         )}
       </div>
 

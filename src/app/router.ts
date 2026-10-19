@@ -6,6 +6,7 @@ export type Route =
   | { name: 'notes'; tag?: string }
   | { name: 'tasks' }
   | { name: 'lists' }
+  | { name: 'journal' }
   | { name: 'search' }
   | { name: 'settings' }
   | { name: 'trash' }
@@ -20,6 +21,7 @@ export function parseRoute(hash: string): Route {
       return { name: 'notes', tag: params.get('tag') ?? undefined }
     case 'tasks':
     case 'lists':
+    case 'journal':
     case 'search':
     case 'settings':
     case 'trash':

@@ -190,7 +190,7 @@ dialog [data-slot='button'],
   inset: auto 0 0 0;
   z-index: 30;
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(6, 1fr);
   background: var(--surface);
   border-top: 1px solid var(--rule);
   padding-bottom: env(safe-area-inset-bottom);
@@ -488,6 +488,44 @@ dialog [data-slot='button'],
 .section-head a {
   font-size: var(--t-sm);
   color: var(--ink-2);
+}
+.format-bar {
+  display: flex;
+  gap: var(--s2);
+  overflow-x: auto;
+  padding-bottom: var(--s1);
+  margin-bottom: var(--s1);
+}
+.conflict-cols {
+  display: grid;
+  gap: var(--s3);
+}
+@media (min-width: 700px) {
+  .conflict-cols {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+.conflict-text {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.conflict-diff {
+  list-style: none;
+  margin: var(--s2) 0;
+  padding: var(--s3);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-sm);
+  font-size: var(--t-sm);
+  max-height: 30vh;
+  overflow-y: auto;
+}
+.conflict-diff [data-kind='del'] {
+  color: var(--sindoor);
+  background: color-mix(in srgb, var(--sindoor) 8%, transparent);
+}
+.conflict-diff [data-kind='add'] {
+  color: var(--leaf);
+  background: color-mix(in srgb, var(--leaf) 10%, transparent);
 }
 
 .panel {

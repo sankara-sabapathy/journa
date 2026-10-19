@@ -1,4 +1,4 @@
-import { CalendarDays, CheckSquare, ListChecks, NotebookPen, Plus, Search as SearchIcon, Settings as SettingsIcon, StickyNote } from 'lucide-react'
+import { BookOpen, CalendarDays, CheckSquare, ListChecks, NotebookPen, Plus, Search as SearchIcon, Settings as SettingsIcon, StickyNote } from 'lucide-react'
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { href, navigate, useRoute, type Route } from './app/router'
 import { Toasts } from './app/toasts'
@@ -15,6 +15,7 @@ import { Today, TodayKolam } from './screens/Today'
 const Lists = lazy(() => import('./screens/Lists').then((m) => ({ default: m.Lists })))
 const Notes = lazy(() => import('./screens/Lists').then((m) => ({ default: m.Notes })))
 const Tasks = lazy(() => import('./screens/Lists').then((m) => ({ default: m.Tasks })))
+const Journal = lazy(() => import('./screens/Journal').then((m) => ({ default: m.Journal })))
 
 const EntryEditor = lazy(() => import('./screens/EntryEditor').then((m) => ({ default: m.EntryEditor })))
 const Search = lazy(() => import('./screens/Search').then((m) => ({ default: m.Search })))
@@ -26,6 +27,7 @@ const TABS: { name: Route['name']; key: MessageKey; Icon: typeof StickyNote }[] 
   { name: 'notes', key: 'nav.notes', Icon: StickyNote },
   { name: 'tasks', key: 'nav.tasks', Icon: CheckSquare },
   { name: 'lists', key: 'nav.lists', Icon: ListChecks },
+  { name: 'journal', key: 'nav.journal', Icon: BookOpen },
   { name: 'settings', key: 'nav.settings', Icon: SettingsIcon },
 ]
 
@@ -41,6 +43,7 @@ function titleFor(route: Route, t: T, date: string, fmt: ReturnType<typeof useI1
     notes: 'nav.notes',
     tasks: 'nav.tasks',
     lists: 'nav.lists',
+    journal: 'nav.journal',
     search: 'nav.search',
     settings: 'nav.settings',
     trash: 'nav.trash',
@@ -160,6 +163,7 @@ export default function App() {
           {route.name === 'notes' && <Notes tag={route.tag} />}
           {route.name === 'tasks' && <Tasks />}
           {route.name === 'lists' && <Lists />}
+          {route.name === 'journal' && <Journal />}
           {route.name === 'search' && <Search />}
           {route.name === 'settings' && <Settings />}
           {route.name === 'trash' && <Trash />}
