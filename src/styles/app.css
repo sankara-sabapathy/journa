@@ -275,7 +275,7 @@ dialog [data-slot='button'],
   }
   .kolam,
   .kolam-weekdays {
-    max-width: 440px;
+    max-width: 420px;
   }
 }
 
@@ -348,7 +348,7 @@ dialog [data-slot='button'],
   padding: var(--s3) var(--s4) var(--s4);
 }
 .kolam-inner {
-  max-width: 960px;
+  max-width: 560px;
   margin: 0 auto;
 }
 .kolam-head {
@@ -395,6 +395,18 @@ dialog [data-slot='button'],
   gap: var(--s3);
   font-weight: 700;
   font-size: var(--t-lg);
+}
+.kolam-picker-year-select {
+  background: transparent;
+  color: inherit;
+  border: 1px solid rgb(251 248 242 / 0.35);
+  border-radius: var(--r-sm);
+  font: inherit;
+  padding: var(--s1) var(--s2);
+  max-height: 52vh;
+}
+.kolam-picker-year-select option {
+  color: var(--ink);
 }
 .kolam-picker-months {
   display: grid;
@@ -474,6 +486,10 @@ dialog [data-slot='button'],
 .kolam {
   position: relative;
   max-width: 360px;
+  margin-inline: auto;
+}
+.kolam-weekdays {
+  margin-inline: auto;
 }
 .kolam svg {
   display: block;
@@ -744,6 +760,7 @@ dialog [data-slot='button'],
 
 .journal-card {
   padding: var(--s3) var(--s4);
+  max-width: var(--measure);
 }
 .journal-card textarea {
   width: 100%;

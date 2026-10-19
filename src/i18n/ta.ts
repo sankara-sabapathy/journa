@@ -227,6 +227,7 @@ export const ta: Messages = {
   'kolam.prevYear': 'முந்தைய ஆண்டு',
   'kolam.nextYear': 'அடுத்த ஆண்டு',
   'kolam.pick': 'மாதத்தையும் ஆண்டையும் தேர்ந்தெடு',
+  'kolam.year': 'ஆண்டு',
   'pwa.installHint': 'Journa-வை நிறுவுங்கள்: அது செயலிபோல் திறக்கும், உலாவியும் தரவைப் பாதுகாப்பாக வைக்கும்.',
   'app.skip': 'உள்ளடக்கத்துக்குச் செல்',
   'nav.main': 'முதன்மை',

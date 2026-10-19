@@ -72,6 +72,10 @@ export function Kolam({ year, month, selected, onMonth, onYear, onPick }: Props)
   const now = new Date()
   const thisYear = now.getFullYear()
   const thisMonth = now.getMonth()
+  const years = useMemo(() => {
+    const start = thisYear - 100
+    return Array.from({ length: thisYear - start + 1 }, (_, i) => start + i)
+  }, [thisYear])
   useEffect(() => {
     if (!picking) return
     const onKey = (e: KeyboardEvent) => {
@@ -130,7 +134,21 @@ export function Kolam({ year, month, selected, onMonth, onYear, onPick }: Props)
               <IconButton label={t('kolam.prevYear')} className="on-kaavi" onClick={() => onYear(-1)}>
                 <ChevronsLeft aria-hidden />
               </IconButton>
-              <span aria-live="polite">{year}</span>
+              <label className="kolam-picker-year-label">
+                <span className="sr-only">{t('kolam.year')}</span>
+                <select
+                  className="kolam-picker-year-select"
+                  value={year}
+                  onChange={(e) => onPick(Number(e.target.value), month)}
+                  aria-label={t('kolam.year')}
+                >
+                  {years.map((y) => (
+                    <option key={y} value={y}>
+                      {y}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <IconButton
                 label={t('kolam.nextYear')}
                 className="on-kaavi"
