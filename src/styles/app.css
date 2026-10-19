@@ -212,6 +212,12 @@ dialog [data-slot='button'],
   overflow-wrap: anywhere;
   text-decoration: none;
 }
+@media (max-width: 420px) {
+  .tab {
+    padding: 0;
+    gap: 1px;
+  }
+}
 .tab[aria-current='page'] {
   color: var(--kaavi-ink);
 }
@@ -269,7 +275,7 @@ dialog [data-slot='button'],
   }
   .kolam,
   .kolam-weekdays {
-    max-width: 300px;
+    max-width: 440px;
   }
 }
 
@@ -350,7 +356,12 @@ dialog [data-slot='button'],
   align-items: center;
   justify-content: space-between;
   gap: var(--s2);
-  margin-bottom: var(--s2);
+  margin-bottom: var(--s1);
+}
+.kolam-count {
+  margin: 0 0 var(--s2);
+  font-size: var(--t-sm);
+  color: rgb(251 248 242 / 0.82);
 }
 .kolam-head h2 {
   font-size: var(--t-sm);

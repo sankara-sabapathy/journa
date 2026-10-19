@@ -1,5 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react'
 import { IconButton } from './IconButton'
 import { useMemo } from 'react'
 import { href } from '../app/router'
@@ -41,9 +41,10 @@ interface Props {
   month: number
   selected: string
   onMonth: (delta: number) => void
+  onYear: (delta: number) => void
 }
 
-export function Kolam({ year, month, selected, onMonth }: Props) {
+export function Kolam({ year, month, selected, onMonth, onYear }: Props) {
   const { t, fmt } = useI18n()
   const cells = useMemo(() => monthGrid(year, month), [year, month])
   const from = cells[0].date
@@ -70,8 +71,11 @@ export function Kolam({ year, month, selected, onMonth }: Props) {
     <section className="kolam-band" aria-labelledby="kolam-title">
       <div className="kolam-inner">
         <div className="kolam-head">
-          <h2 id="kolam-title">{t('kolam.label', { month: monthName, count: written.size })}</h2>
+          <h2 id="kolam-title">{monthName}</h2>
           <div className="kolam-nav">
+            <IconButton label={t('kolam.prevYear')} className="on-kaavi" onClick={() => onYear(-1)}>
+              <ChevronsLeft aria-hidden />
+            </IconButton>
             <IconButton label={t('kolam.prev')} className="on-kaavi" onClick={() => onMonth(-1)}>
               <ChevronLeft aria-hidden />
             </IconButton>
@@ -83,8 +87,17 @@ export function Kolam({ year, month, selected, onMonth }: Props) {
             >
               <ChevronRight aria-hidden />
             </IconButton>
+            <IconButton
+              label={t('kolam.nextYear')}
+              className="on-kaavi"
+              onClick={() => onYear(1)}
+              disabled={year + 1 > new Date().getFullYear()}
+            >
+              <ChevronsRight aria-hidden />
+            </IconButton>
           </div>
         </div>
+        <p className="kolam-count">{t('kolam.written', { count: written.size })}</p>
         <div className="kolam-weekdays" aria-hidden>
           {weekdays.map((w, i) => (
             <span key={i}>{w}</span>

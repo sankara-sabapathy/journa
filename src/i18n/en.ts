@@ -26,7 +26,7 @@ export const en = {
   'today.allJournals': 'Browse all',
   'today.noTasks': 'Nothing due today. Add a task with the + button.',
   'today.noLists': 'No lists yet.',
-  'kolam.label': '{month}: {count, plural, one {# day} other {# days}} written',
+  'kolam.written': '{count, plural, one {# day} other {# days}} written',
   'kolam.day': '{date}, written',
   'kolam.dayEmpty': '{date}, not written',
   'kolam.today': 'Today',
@@ -221,6 +221,8 @@ export const en = {
 
   'kolam.prev': 'Previous month',
   'kolam.next': 'Next month',
+  'kolam.prevYear': 'Previous year',
+  'kolam.nextYear': 'Next year',
   'pwa.installHint': 'Install Journa so it opens like an app and the browser keeps its data safe.',
   'app.skip': 'Skip to content',
   'nav.main': 'Main',

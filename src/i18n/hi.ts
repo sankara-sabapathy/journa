@@ -28,7 +28,7 @@ export const hi: Messages = {
   'today.allJournals': 'सभी देखें',
   'today.noTasks': 'आज कुछ बाकी नहीं। + बटन से काम जोड़ें।',
   'today.noLists': 'अभी कोई सूची नहीं।',
-  'kolam.label': '{month}: {count, plural, one {# दिन} other {# दिन}} लिखा गया',
+  'kolam.written': '{count, plural, one {# दिन} other {# दिन}} लिखा गया',
   'kolam.day': '{date}, लिखा गया',
   'kolam.dayEmpty': '{date}, नहीं लिखा गया',
   'kolam.today': 'आज',
@@ -224,6 +224,8 @@ export const hi: Messages = {
 
   'kolam.prev': 'पिछला महीना',
   'kolam.next': 'अगला महीना',
+  'kolam.prevYear': 'पिछला साल',
+  'kolam.nextYear': 'अगला साल',
   'pwa.installHint': 'Journa इंस्टॉल करें ताकि यह ऐप की तरह खुले और ब्राउज़र इसका डेटा सुरक्षित रखे।',
   'app.skip': 'सामग्री पर जाएँ',
   'nav.main': 'मुख्य',

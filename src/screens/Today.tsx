@@ -26,6 +26,7 @@ export function TodayKolam({ date }: { date: string }) {
         const n = new Date(ym.y, ym.m + delta, 1)
         setYm({ y: n.getFullYear(), m: n.getMonth() })
       }}
+      onYear={(delta) => setYm({ y: ym.y + delta, m: ym.m })}
     />
   )
 }
