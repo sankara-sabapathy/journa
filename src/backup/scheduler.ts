@@ -1,5 +1,6 @@
 import { db } from '../db/db'
 import { onChange } from '../db/repo'
+import type { ErrorCode } from '../app/errors'
 
 import type { BackupTarget, TargetStatus } from './targets/BackupTarget'
 
@@ -22,7 +23,7 @@ export interface BackupState {
   status: TargetStatus
   folder: string | null
   lastBackupAt: number | null
-  lastError: string | null
+  lastError: ErrorCode | null
   running: boolean
   dirty: boolean
 }
@@ -79,8 +80,8 @@ function createScheduler() {
       await db.settings.put({ key: LAST_KEY, value: now })
       set({ lastBackupAt: now, lastError: null, dirty: false })
       return true
-    } catch (err) {
-      set({ lastError: err instanceof Error ? err.message : String(err) })
+    } catch {
+      set({ lastError: 'error.backupFailed' })
       return false
     } finally {
       set({ running: false })

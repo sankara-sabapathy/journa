@@ -128,6 +128,7 @@ Flat. Panels use a 1px rule, never a shadow. Only floating things (compose butto
 - **IconButton** (`src/components/IconButton.tsx`): coss ghost button + coss tooltip kept mounted, linked with `data-ui-tooltip`. Every icon-only control uses it.
 - **MoodPicker** (`src/components/MoodPicker.tsx`): five 44px circular lucide faces, pressed = kaavi. It sits at the top of the journal card so the compose button never covers a face. `MoodMark` is the read-only form used in lists.
 - **Segmented** (`src/components/Segmented.tsx`): coss ToggleGroup, single choice, pressed = kaavi.
+- **Empty states** (`src/screens/NotFound.tsx`): a quiet compass, one sentence and a way back — for a link that points at nothing, and for a crash that a reload can clear.
 - **TaskCheck**: coss Checkbox at 24px, leaf when checked.
 - **Kolam** and **ProgressKolam**: SVG line work, `stroke-width: 2`, round caps, draw-in once on mount, disabled under `prefers-reduced-motion`.
 - Native `<select>` and `<input type="date">` are kept on purpose for the phone's own pickers.

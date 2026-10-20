@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import type { ErrorCode } from '../app/errors'
 import type { Entry } from '../db/types'
 
 /** Cognito `sub`, branded so user ids never mix with other string ids. */
@@ -52,7 +53,13 @@ export interface SyncConflict {
 
 export type AccountState =
   | { readonly status: 'signed-out' }
-  | { readonly status: 'awaiting-otp'; readonly email: string; readonly session: string }
+  | {
+      readonly status: 'awaiting-code'
+      readonly email: string
+      readonly session: string
+      /** Which challenge the code answers: the sign-up confirmation or the sign-in code. */
+      readonly purpose: 'confirm' | 'sign-in'
+    }
   | {
       readonly status: 'idle'
       readonly userId: UserId
@@ -71,5 +78,5 @@ export type AccountState =
       readonly userId: UserId
       readonly email: string
       readonly lastSyncAt: number | null
-      readonly error: string
+      readonly error: ErrorCode
     }

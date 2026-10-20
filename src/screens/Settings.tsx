@@ -6,6 +6,7 @@ import { Dialog, DialogDescription, DialogFooter, DialogHeader, DialogPanel, Dia
 import { Input } from '@/components/ui/input'
 import { href } from '../app/router'
 import { ACCENTS, useAccent } from '../app/accent'
+import { useErrorMessage } from '../app/errors'
 import { useTheme, type Theme } from '../app/theme'
 import { toast } from '../app/toasts'
 import { WrongPassphraseError } from '../backup/crypto'
@@ -18,7 +19,6 @@ import { useBackupState } from '../components/BackupChip'
 import { Segmented } from '../components/Segmented'
 import { LOCALES, useI18n, type Locale } from '../i18n'
 import { storageInfo } from '../pwa/persistStorage'
-import { supportsPasskeys } from '../sync/auth'
 import {
   approveDevice,
   deleteAccount,
@@ -74,6 +74,7 @@ function diffLines(before: string, after: string): DiffRow[] {
 
 function ConflictsPanel() {
   const { t } = useI18n()
+  const describe = useErrorMessage()
   const conflicts = useConflicts()
   const [busyId, setBusyId] = useState<string | null>(null)
   if (conflicts.length === 0) return null
@@ -83,7 +84,7 @@ function ConflictsPanel() {
     try {
       await fn(id)
     } catch (err) {
-      toast(err instanceof Error ? err.message : String(err))
+      toast(describe(err))
     } finally {
       setBusyId(null)
     }
@@ -142,7 +143,11 @@ function ConflictsPanel() {
 function AccountPanel() {
   const { t, fmt } = useI18n()
   const account = useAccountState()
+  const describe = useErrorMessage()
+  const [mode, setMode] = useState<'sign-in' | 'create'>('sign-in')
   const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [password2, setPassword2] = useState('')
   const [code, setCode] = useState('')
   const [busy, setBusy] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -152,22 +157,30 @@ function AccountPanel() {
     try {
       await fn()
     } catch (err) {
-      toast(err instanceof Error ? err.message : String(err))
+      toast(describe(err))
     } finally {
       setBusy(false)
     }
   }
 
   if (account.status === 'signed-out') {
+    const creating = mode === 'create'
+    const passwordMismatch = creating && password2.length > 0 && password !== password2
+    const canSubmit = creating
+      ? email.trim().length > 0 && password.length > 0 && password === password2
+      : email.trim().length > 0
     return (
       <section className="panel" aria-labelledby="h-account">
         <h2 id="h-account">{t('account.title')}</h2>
-        <p className="muted">{t('account.optionalHint')}</p>
+        <p className="muted">{creating ? t('account.createHint') : t('account.optionalHint')}</p>
         <form
           className="field"
           onSubmit={(e) => {
             e.preventDefault()
-            if (email.trim()) void run(() => syncEngine.beginEmailSignIn(email.trim()))
+            if (!canSubmit) return
+            const address = email.trim()
+            if (creating) void run(() => syncEngine.createAccount(address, password))
+            else void run(() => syncEngine.beginEmailSignIn(address))
           }}
         >
           <label htmlFor="account-email">{t('account.email')}</label>
@@ -180,14 +193,66 @@ function AccountPanel() {
             onChange={(e) => setEmail(e.target.value)}
             placeholder={t('account.emailPlaceholder')}
           />
+          {creating && (
+            <>
+              <label htmlFor="account-password">{t('account.password')}</label>
+              <Input
+                id="account-password"
+                size="lg"
+                type="password"
+                autoComplete="new-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                aria-describedby="account-password-hint"
+              />
+              <p className="hint" id="account-password-hint">
+                {t('account.passwordHint')}
+              </p>
+              <label htmlFor="account-password2">{t('account.passwordConfirm')}</label>
+              <Input
+                id="account-password2"
+                size="lg"
+                type="password"
+                autoComplete="new-password"
+                value={password2}
+                onChange={(e) => setPassword2(e.target.value)}
+                aria-invalid={passwordMismatch || undefined}
+                aria-describedby={passwordMismatch ? 'account-password-error' : undefined}
+              />
+              {passwordMismatch && (
+                <p className="warn" id="account-password-error">
+                  {t('account.passwordMismatch')}
+                </p>
+              )}
+            </>
+          )}
           <div className="btn-row">
-            <Button size="lg" type="submit" loading={busy} disabled={!email.trim()}>
-              {t('account.signInEmail')}
-            </Button>
-            {supportsPasskeys() && (
-              <Button size="lg" variant="outline" loading={busy} onClick={() => void run(() => syncEngine.signInWithPasskey())}>
-                {t('account.signInPasskey')}
-              </Button>
+            {creating ? (
+              <>
+                <Button size="lg" type="submit" loading={busy} disabled={!canSubmit}>
+                  {t('account.create')}
+                </Button>
+                <Button
+                  size="lg"
+                  variant="ghost"
+                  onClick={() => {
+                    setMode('sign-in')
+                    setPassword('')
+                    setPassword2('')
+                  }}
+                >
+                  {t('common.cancel')}
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button size="lg" type="submit" loading={busy} disabled={!canSubmit}>
+                  {t('account.signInEmail')}
+                </Button>
+                <Button size="lg" variant="outline" onClick={() => setMode('create')}>
+                  {t('account.create')}
+                </Button>
+              </>
             )}
           </div>
         </form>
@@ -195,16 +260,21 @@ function AccountPanel() {
     )
   }
 
-  if (account.status === 'awaiting-otp') {
+  if (account.status === 'awaiting-code') {
+    const confirming = account.purpose === 'confirm'
     return (
       <section className="panel" aria-labelledby="h-account">
         <h2 id="h-account">{t('account.title')}</h2>
-        <p className="muted">{account.email}</p>
+        <p className="muted">
+          {confirming
+            ? t('account.codeSentConfirm', { email: account.email })
+            : t('account.codeSent', { email: account.email })}
+        </p>
         <form
           className="field"
           onSubmit={(e) => {
             e.preventDefault()
-            if (code.trim()) void run(() => syncEngine.verifyEmailOtp(code.trim()))
+            if (code.trim()) void run(() => syncEngine.verifyCode(code.trim()))
           }}
         >
           <label htmlFor="account-code">{t('account.code')}</label>
@@ -219,6 +289,12 @@ function AccountPanel() {
           <div className="btn-row">
             <Button size="lg" type="submit" loading={busy} disabled={!code.trim()}>
               {t('account.verify')}
+            </Button>
+            <Button size="lg" variant="outline" loading={busy} onClick={() => void run(() => syncEngine.resendCode())}>
+              {t('account.resendCode')}
+            </Button>
+            <Button size="lg" variant="ghost" onClick={() => syncEngine.cancelAuth()}>
+              {t('common.cancel')}
             </Button>
           </div>
         </form>
@@ -235,7 +311,7 @@ function AccountPanel() {
       await syncEngine.signOut()
       toast(t('account.deleted'))
     } catch (err) {
-      toast(err instanceof Error ? err.message : String(err))
+      toast(describe(err))
     } finally {
       setBusy(false)
     }
@@ -245,7 +321,11 @@ function AccountPanel() {
       <h2 id="h-account">{t('account.title')}</h2>
       <p>{account.email}</p>
       <p className="muted">{account.lastSyncAt ? t('account.lastSync', { time: fmt.relative(account.lastSyncAt) }) : t('account.neverSynced')}</p>
-      {account.status === 'error' && <p className="warn">{t('account.failed', { error: account.error })}</p>}
+      {account.status === 'error' && (
+        <p className="warn" role="status">
+          {t(account.error)}
+        </p>
+      )}
       <div className="btn-row">
         <Button size="lg" variant="outline" loading={syncing || busy} onClick={() => void run(() => syncEngine.syncNow())}>
           {t('account.syncNow')}
@@ -271,6 +351,7 @@ function AccountPanel() {
 
 function DevicesPanel() {
   const { t } = useI18n()
+  const describe = useErrorMessage()
   const account = useAccountState()
   const [devices, setDevices] = useState<DeviceRecord[]>([])
   const [thisId, setThisId] = useState<string | null>(null)
@@ -298,7 +379,7 @@ function DevicesPanel() {
       await fn()
       await refresh()
     } catch (err) {
-      toast(err instanceof Error ? err.message : String(err))
+      toast(describe(err))
     } finally {
       setBusy(false)
     }
@@ -411,7 +492,7 @@ function BackupPanel() {
         <div>
           <p>{statusText}</p>
           <p className="muted">{s.lastBackupAt ? t('backup.last', { time: fmt.relative(s.lastBackupAt) }) : t('backup.never')}</p>
-          {s.lastError && <p className="warn">{t('backup.failed', { error: s.lastError })}</p>}
+          {s.lastError && <p className="warn">{t(s.lastError)}</p>}
         </div>
       </div>
 
@@ -510,6 +591,7 @@ function BackupPanel() {
 
 function DataPanel() {
   const { t } = useI18n()
+  const describe = useErrorMessage()
   const trashCount = useLiveQuery(() => repo.listTrash().then((rows) => rows.length), []) ?? 0
   const fileRef = useRef<HTMLInputElement>(null)
   const [pending, setPending] = useState<Backup | null>(null)
@@ -547,7 +629,7 @@ function DataPanel() {
           setPassError(true)
           continue
         }
-        toast(err instanceof BackupFormatError ? t('data.badFile') : String(err))
+        toast(err instanceof BackupFormatError ? t('data.badFile') : describe(err))
         return
       }
     }

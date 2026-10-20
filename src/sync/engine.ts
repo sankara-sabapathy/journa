@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react'
+import { AppError, toErrorCode } from '../app/errors'
 import { db } from '../db/db'
 import { newId, onChange } from '../db/repo'
 import type { Entry } from '../db/types'
@@ -15,6 +16,8 @@ const CURSOR_KEY = 'sync.cursor'
 type StoredCredentials = auth.CloudCredentials
 
 let state: AccountState = { status: 'signed-out' }
+/** Kept in memory only, for the one step between confirming and signing in. */
+let pendingPassword: string | null = null
 const listeners = new Set<() => void>()
 
 function emit() {
@@ -120,31 +123,80 @@ export async function start() {
   }
 }
 
-export async function beginEmailSignIn(email: string) {
-  const session = await auth.beginEmailSignIn(email)
-  update({ status: 'awaiting-otp', email, session })
+export async function createAccount(email: string, password: string) {
+  const result = await auth.signUp(email, password)
+  pendingPassword = password
+  if (result.confirmed) {
+    // Cognito confirmed straight away, so only the sign-in code is left.
+    const session = await auth.beginEmailSignIn(email)
+    update({ status: 'awaiting-code', email, session, purpose: 'sign-in' })
+    return
+  }
+  update({ status: 'awaiting-code', email, session: result.session, purpose: 'confirm' })
 }
 
-export async function verifyEmailOtp(code: string) {
-  if (state.status !== 'awaiting-otp') throw new Error('not-awaiting-otp')
-  const credentials = await auth.verifyEmailSignIn(state.email, state.session, code)
+export async function beginEmailSignIn(email: string) {
+  const session = await auth.beginEmailSignIn(email)
+  update({ status: 'awaiting-code', email, session, purpose: 'sign-in' })
+}
+
+/** Sends the code again, whichever kind the user is waiting on. */
+export async function resendCode() {
+  if (state.status !== 'awaiting-code') throw new AppError('error.unknown')
+  const { email, purpose } = state
+  if (purpose === 'confirm') {
+    await auth.resendConfirmationCode(email)
+    return
+  }
+  const session = await auth.beginEmailSignIn(email)
+  update({ status: 'awaiting-code', email, session, purpose: 'sign-in' })
+}
+
+/** Answers the code the user typed in. */
+export async function verifyCode(code: string) {
+  if (state.status !== 'awaiting-code') throw new AppError('error.unknown')
+  const { email, session, purpose } = state
+
+  if (purpose === 'confirm') {
+    await auth.confirmSignUp(email, code)
+    // The address is verified. Sign in with the password we already have so
+    // the new account needs only this one code; fall back to an emailed code.
+    const password = pendingPassword
+    const credentials = password ? await auth.signInWithPassword(email, password) : null
+    if (!credentials) {
+      const next = await auth.beginEmailSignIn(email)
+      update({ status: 'awaiting-code', email, session: next, purpose: 'sign-in' })
+      return
+    }
+    await finishSignIn(credentials)
+    return
+  }
+
+  const outcome = await auth.respondToChallenge('EMAIL_OTP', session, { USERNAME: email, ANSWER: code })
+  if (outcome.kind === 'challenge') {
+    update({ status: 'awaiting-code', email, session: outcome.session, purpose: 'sign-in' })
+    return
+  }
+  await finishSignIn(outcome.credentials)
+}
+
+/** Drops the pending sign-in and returns to the signed-out screen. */
+export function cancelAuth() {
+  pendingPassword = null
+  if (state.status !== 'awaiting-code') return
+  update({ status: 'signed-out' })
+}
+
+async function finishSignIn(credentials: auth.CloudCredentials) {
+  pendingPassword = null
   await putSettings(TOKENS_KEY, credentials)
   await putSettings(ACCOUNT_KEY, { lastSyncAt: null })
   update(credentialsAccount(credentials, null))
 }
 
-export async function signInWithPasskey() {
-  if (!auth.supportsPasskeys()) throw new Error('passkeys-unsupported')
-  await auth.passkeyChallenge('')
-  throw new Error('passkey-response-not-wired')
-}
-
-export async function registerPasskey() {
-  if (state.status === 'signed-out' || state.status === 'awaiting-otp') throw new Error('account-not-signed-in')
-}
-
 export async function signOut() {
-  if (state.status === 'signed-out' || state.status === 'awaiting-otp') return
+  pendingPassword = null
+  if (state.status === 'signed-out' || state.status === 'awaiting-code') return
   await clearStoredCredentials()
   update({ status: 'signed-out' })
 }
@@ -176,7 +228,7 @@ export async function syncNow(): Promise<boolean> {
     const freshCredentials = await refreshIfNeeded(credentials)
     let dek: Uint8Array<ArrayBuffer> | null = await resolveDataKey('Journa device')
     if (!dek) {
-      update({ status: 'error', userId, email, lastSyncAt, error: 'sync-device-not-enrolled' })
+      update({ status: 'error', userId, email, lastSyncAt, error: 'error.deviceNotEnrolled' })
       return false
     }
     const entries = await db.entries.toArray()
@@ -233,8 +285,7 @@ export async function syncNow(): Promise<boolean> {
     update({ status: 'idle', userId, email, lastSyncAt: nextLastSyncAt, dirtyCount })
     return true
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'unknown-sync-error'
-    update({ status: 'error', userId, email, lastSyncAt, error: message })
+    update({ status: 'error', userId, email, lastSyncAt, error: toErrorCode(error) })
     return false
   }
 }
@@ -361,11 +412,12 @@ export const syncEngine = {
   getState,
   subscribe,
   start,
-  beginEmailSignIn,
-  verifyEmailOtp,
-  signInWithPasskey,
-  registerPasskey,
   signOut,
+  createAccount,
+  beginEmailSignIn,
+  verifyCode,
+  resendCode,
+  cancelAuth,
   syncNow,
   getConflicts,
   subscribeConflicts,

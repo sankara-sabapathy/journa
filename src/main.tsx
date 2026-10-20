@@ -1,6 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App.tsx'
+import { ErrorBoundary } from './app/ErrorBoundary'
 import { scheduler } from './backup/scheduler'
 import { folderTarget } from './backup/targets/folderTarget'
 import { I18nProvider } from './i18n'
@@ -19,7 +20,9 @@ void syncEngine.start()
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <I18nProvider>
-      <App />
+      <ErrorBoundary>
+        <App />
+      </ErrorBoundary>
     </I18nProvider>
   </StrictMode>,
 )

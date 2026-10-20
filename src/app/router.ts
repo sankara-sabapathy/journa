@@ -11,12 +11,15 @@ export type Route =
   | { name: 'settings' }
   | { name: 'trash' }
   | { name: 'entry'; id: string }
+  | { name: 'not-found' }
 
 export function parseRoute(hash: string): Route {
   const [path, query = ''] = hash.replace(/^#\/?/, '').split('?')
   const [head, arg] = path.split('/')
   const params = new URLSearchParams(query)
   switch (head) {
+    case '':
+      return { name: 'today' }
     case 'notes':
       return { name: 'notes', tag: params.get('tag') ?? undefined }
     case 'tasks':
@@ -27,11 +30,11 @@ export function parseRoute(hash: string): Route {
     case 'trash':
       return { name: head }
     case 'entry':
-      return arg ? { name: 'entry', id: arg } : { name: 'today' }
+      return arg ? { name: 'entry', id: arg } : { name: 'not-found' }
     case 'today':
       return { name: 'today', date: /^\d{4}-\d{2}-\d{2}$/.test(arg ?? '') ? arg : undefined }
     default:
-      return { name: 'today' }
+      return { name: 'not-found' }
   }
 }
 

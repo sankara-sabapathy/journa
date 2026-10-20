@@ -1,7 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { ArrowDown, ArrowLeft, ArrowUp, Pin, PinOff, Plus, Trash2, X } from 'lucide-react'
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
-import { navigate } from '../app/router'
+import { href, navigate } from '../app/router'
 import { toast } from '../app/toasts'
 import { fromISODate } from '../db/date'
 import { newId, repo } from '../db/repo'
@@ -54,9 +54,13 @@ export function EntryEditor({ id }: { id: string }) {
   if (!result || result.i !== id) return <p className="muted">{t('common.loading')}</p>
   if (!result.e || result.e.deletedAt) {
     return (
-      <p className="muted">
-        <a href="#/today">{t('entry.back')}</a>
-      </p>
+      <div className="empty not-found">
+        <strong>{t('notFound.title')}</strong>
+        <p>{t('entry.notFound')}</p>
+        <a className="btn btn-primary" href={href({ name: 'today' })}>
+          {t('notFound.home')}
+        </a>
+      </div>
     )
   }
   return <Editor key={id} initial={result.e} />

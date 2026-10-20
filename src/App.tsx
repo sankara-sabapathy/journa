@@ -21,6 +21,7 @@ const EntryEditor = lazy(() => import('./screens/EntryEditor').then((m) => ({ de
 const Search = lazy(() => import('./screens/Search').then((m) => ({ default: m.Search })))
 const Trash = lazy(() => import('./screens/Search').then((m) => ({ default: m.Trash })))
 const Settings = lazy(() => import('./screens/Settings').then((m) => ({ default: m.Settings })))
+const NotFound = lazy(() => import('./screens/NotFound').then((m) => ({ default: m.NotFound })))
 
 const TABS: { name: Route['name']; key: MessageKey; Icon: typeof StickyNote }[] = [
   { name: 'today', key: 'nav.today', Icon: CalendarDays },
@@ -47,6 +48,7 @@ function titleFor(route: Route, t: T, date: string, fmt: ReturnType<typeof useI1
     search: 'nav.search',
     settings: 'nav.settings',
     trash: 'nav.trash',
+    'not-found': 'notFound.title',
   }
   return { title: key[route.name] ? t(key[route.name]!) : '', sub: '' }
 }
@@ -115,7 +117,20 @@ export default function App() {
     window.scrollTo(0, 0)
   }, [route.name, title])
 
-  const active = route.name === 'entry' || route.name === 'trash' || route.name === 'search' ? null : route.name
+  // Move focus to the new page so screen readers announce the change.
+  const firstRoute = useRef(true)
+  useEffect(() => {
+    if (firstRoute.current) {
+      firstRoute.current = false
+      return
+    }
+    mainRef.current?.focus({ preventScroll: true })
+  }, [route.name])
+
+  const active =
+    route.name === 'entry' || route.name === 'trash' || route.name === 'search' || route.name === 'not-found'
+      ? null
+      : route.name
 
   return (
     <div className="shell">
@@ -168,6 +183,7 @@ export default function App() {
           {route.name === 'settings' && <Settings />}
           {route.name === 'trash' && <Trash />}
           {route.name === 'entry' && <EntryEditor id={route.id} />}
+          {route.name === 'not-found' && <NotFound />}
         </Suspense>
       </main>
 

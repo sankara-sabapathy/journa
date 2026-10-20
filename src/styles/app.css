@@ -816,6 +816,18 @@ dialog [data-slot='button'],
   font-size: var(--t-md);
   margin-bottom: var(--s1);
 }
+.not-found {
+  display: grid;
+  justify-items: start;
+  gap: var(--s2);
+  padding-block: var(--s6);
+}
+.not-found svg {
+  color: var(--ink-2);
+}
+.not-found p {
+  margin: 0 0 var(--s2);
+}
 
 /* ---------- journal card ---------- */
 
