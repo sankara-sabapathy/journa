@@ -123,7 +123,11 @@ export function Today({ date }: { date: string }) {
   const shown = [...dueNow, ...tasks.filter((e) => e.done && e.updatedAt > fromISODate(today).getTime())].slice(0, 8)
 
   return (
-    <div>
+    <div className="today">
+      <div className="today-side">
+        <TodayKolam date={date} />
+      </div>
+      <div className="today-main">
       <section className="section" aria-labelledby="h-journal">
         <div className="section-head">
           <h2 id="h-journal">{t('today.journal')}</h2>
@@ -173,6 +177,7 @@ export function Today({ date }: { date: string }) {
           </section>
         </>
       )}
+      </div>
     </div>
   )
 }

@@ -52,7 +52,13 @@
   --dur: 180ms;
 
   --nav-h: 64px;
-  --rail-w: 220px;
+  --rail-w: 232px;
+  --gutter: 20px;
+  /* Desktop reading and writing measures. */
+  --writing-w: 660px;
+  --month-w: 340px;
+  --group-gap: 32px;
+  --group-w: 1032px;
   --measure: 70ch;
 }
 

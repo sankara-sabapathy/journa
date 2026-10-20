@@ -115,7 +115,11 @@ One system sans stack for everything. Rank comes from weight and case on a tight
 
 ## Layout
 
-Phone first: sticky kaavi top bar → kolam band (Today only) → content column → fixed five-tab bottom bar with a 56px compose button above it. At ≥900px the tabs become a 220px left rail beside the content (`grid-template-areas: head head / rail main`). Spacing on a 4px base; more space above a heading than below it.
+Phone first: sticky kaavi top bar → kolam band (Today only) → content column → fixed five-tab bottom bar with a 56px compose button above it. Spacing on a 4px base; more space above a heading than below it.
+
+Desktop (≥900px) is an app shell, not a stretched phone: a fixed kaavi bar carrying the brand, the page title and date, the search button and the backup chip on one row; a 232px white rail holding the nav; and one content column on the limewash ground. Everything sits on a single axis — the title in the bar, the content, the section heads and the compose button all share the writing column's left edge.
+
+One writing measure everywhere: the content column is 660px and the writing inside it is capped at 68ch, so a long page never becomes a long line. From 1292px the month becomes a 340px kaavi-deep card in a column beside the writing rather than a band across the window; between 900px and 1292px it sits above the writing as a wide card. The phone keeps its full-bleed month band. The month card stacks its month name, day count and arrows when the card is narrow, so Tamil and Hindi month names never squeeze the arrows.
 
 Buttons and toggles wrap their labels rather than widening the page; segmented toggles keep `min-width: max-content` and wrap to a new row.
 
@@ -130,7 +134,7 @@ Flat. Panels use a 1px rule, never a shadow. Only floating things (compose butto
 - **Segmented** (`src/components/Segmented.tsx`): coss ToggleGroup, single choice, pressed = kaavi.
 - **Empty states** (`src/screens/NotFound.tsx`): a quiet compass, one sentence and a way back — for a link that points at nothing, and for a crash that a reload can clear.
 - **TaskCheck**: coss Checkbox at 24px, leaf when checked.
-- **Kolam** and **ProgressKolam**: SVG line work, `stroke-width: 2`, round caps, draw-in once on mount, disabled under `prefers-reduced-motion`.
+- **Kolam** and **ProgressKolam**: SVG line work, `stroke-width: 2`, round caps, draw-in once on mount, disabled under `prefers-reduced-motion`. On the phone the month is a full-bleed kaavi-deep band; on the desktop it is the same card, narrowed to a column.
 - Native `<select>` and `<input type="date">` are kept on purpose for the phone's own pickers.
 
 ## Do's and Don'ts

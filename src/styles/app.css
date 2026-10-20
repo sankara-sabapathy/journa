@@ -121,18 +121,15 @@ dialog [data-slot='button'],
   position: sticky;
   top: 0;
   z-index: 20;
-}
-
-.topbar-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
-  justify-content: space-between;
-  gap: var(--s3);
-  max-width: 960px;
-  margin: 0 auto;
+  column-gap: var(--s3);
+  row-gap: var(--s1);
 }
 
 .brand {
+  grid-area: 1 / 1;
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -142,6 +139,22 @@ dialog [data-slot='button'],
   text-transform: uppercase;
   color: inherit;
   text-decoration: none;
+}
+
+.topbar-actions {
+  grid-area: 1 / 2;
+  justify-self: end;
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+}
+
+.page-heading {
+  grid-area: 2 / 1 / 3 / 3;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
 }
 
 .chip {
@@ -172,10 +185,24 @@ dialog [data-slot='button'],
   scroll-margin-top: calc(var(--s4) + 56px);
 }
 
+/* One writing measure for every screen; Today widens for the month column. */
+.page {
+  max-width: var(--writing-w);
+}
+.page-today {
+  max-width: var(--writing-w);
+}
+
 .page-title {
   font-size: var(--t-2xl);
   font-weight: 700;
   line-height: 1.2;
+}
+/* Focus moves to the content on navigation so screen readers announce it; the
+   ring around a whole region is noise, and the new heading is the feedback. */
+.main:focus,
+.main:focus-visible {
+  outline: none;
 }
 .page-sub {
   color: var(--ink-2);
@@ -224,60 +251,6 @@ dialog [data-slot='button'],
 }
 .tab[aria-current='page'] svg {
   stroke-width: 2.5;
-}
-
-@media (min-width: 900px) {
-  .shell {
-    grid-template-columns: var(--rail-w) minmax(0, 1fr);
-    grid-template-rows: auto 1fr;
-    grid-template-areas:
-      'head head'
-      'rail main';
-  }
-  .shell > header {
-    grid-area: head;
-  }
-  .shell > .tabs {
-    grid-area: rail;
-  }
-  .shell > .main {
-    grid-area: main;
-    margin: 0;
-    padding-inline: var(--s6);
-  }
-  .tabs {
-    position: sticky;
-    top: 0;
-    align-self: start;
-    display: flex;
-    flex-direction: column;
-    gap: var(--s1);
-    border: 0;
-    background: transparent;
-    padding: var(--s4) var(--s3);
-  }
-  .tab {
-    flex-direction: row;
-    justify-content: flex-start;
-    gap: var(--s3);
-    min-height: 44px;
-    padding: 0 var(--s3);
-    border-radius: var(--r-sm);
-    font-size: var(--t-sm);
-  }
-  .tab[aria-current='page'] {
-    background: var(--surface-2);
-  }
-  .tab:hover {
-    background: var(--surface-2);
-  }
-  .main {
-    padding-bottom: var(--s7);
-  }
-  .kolam,
-  .kolam-weekdays {
-    max-width: 420px;
-  }
 }
 
 /* ---------- compose ---------- */
@@ -347,13 +320,30 @@ dialog [data-slot='button'],
   background: var(--kaavi-deep);
   color: var(--rice);
   padding: var(--s3) var(--s4) var(--s4);
+  /* Full bleed on the phone; a card inside the column on the desktop. */
+  margin-inline: calc(-1 * var(--s4));
+  container-type: inline-size;
 }
 .kolam-inner {
   max-width: 560px;
   margin: 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--s3) var(--s5);
+}
+.kolam-side {
+  flex: 1 1 180px;
+  min-width: 0;
+}
+.kolam-grid {
+  flex: 0 1 360px;
+  min-width: 0;
 }
 .kolam-head {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: var(--s2);
@@ -381,13 +371,14 @@ dialog [data-slot='button'],
   outline-offset: 2px;
 }
 .kolam-picker {
+  flex: 1 1 100%;
   display: grid;
   gap: var(--s2);
   padding: var(--s3);
   margin-bottom: var(--s2);
   border: 1px solid rgb(251 248 242 / 0.25);
   border-radius: var(--r-md);
-  background: rgb(0 0 0 / 0.12);
+  background: color-mix(in srgb, var(--kaavi-deep) 70%, var(--ink));
 }
 .kolam-picker-year {
   display: flex;
@@ -441,6 +432,27 @@ dialog [data-slot='button'],
 .kolam-nav {
   display: flex;
   gap: var(--s2);
+}
+/* A narrow card stacks the month over its arrows rather than squeezing them. */
+@container (max-width: 330px) {
+  .kolam-side {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .kolam-head {
+    display: contents;
+  }
+  .kolam-head h2 {
+    order: 0;
+    line-height: 1.25;
+  }
+  .kolam-count {
+    order: 1;
+  }
+  .kolam-nav {
+    order: 2;
+  }
 }
 .on-kaavi {
   color: var(--rice);
@@ -549,6 +561,18 @@ dialog [data-slot='button'],
   .mood {
     transition: none;
   }
+}
+
+/* ---------- today ---------- */
+
+.today {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--s5);
+}
+.today-side,
+.today-main {
+  max-width: var(--writing-w);
 }
 
 /* ---------- sections & lists ---------- */
@@ -848,6 +872,15 @@ dialog [data-slot='button'],
   line-height: var(--lh);
   font-size: var(--t-lg);
   padding: 0;
+}
+@media (min-width: 900px) {
+  /* The card fills the column; the writing inside keeps its measure. */
+  .journal-card {
+    max-width: none;
+  }
+  .journal-card textarea {
+    max-width: 68ch;
+  }
 }
 .journal-card textarea:focus {
   outline: none;
@@ -1338,3 +1371,123 @@ dialog form {
 [data-slot='input-control'] {
   background: var(--surface);
 }
+
+@media (min-width: 900px) {
+  /* A fixed app shell: the bar and the rail stay put, the content scrolls. */
+  .shell {
+    height: 100dvh;
+    overflow: hidden;
+    grid-template-columns: var(--rail-w) minmax(0, 1fr);
+    grid-template-rows: auto 1fr;
+    grid-template-areas:
+      'head head'
+      'rail main';
+  }
+  .shell > header {
+    grid-area: head;
+  }
+  .shell > .tabs {
+    grid-area: rail;
+  }
+  .shell > .main {
+    grid-area: main;
+    margin: 0;
+    max-width: none;
+    overflow-y: auto;
+    padding: var(--s5) var(--gutter) var(--s7) var(--gutter);
+  }
+  .shell > header {
+    position: static;
+  }
+  .topbar {
+    position: static;
+    grid-template-columns: var(--rail-w) minmax(0, 1fr) auto;
+    column-gap: 0;
+    row-gap: 0;
+    padding-inline: var(--gutter);
+    padding-block: var(--s3);
+  }
+  .brand {
+    grid-area: 1 / 1;
+  }
+  .page-heading {
+    grid-area: 1 / 2;
+    flex-direction: row;
+    align-items: baseline;
+    gap: var(--s3);
+  }
+  .topbar-actions {
+    grid-area: 1 / 3;
+  }
+  .tabs {
+    position: static;
+    height: 100%;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--s1);
+    border: 0;
+    border-right: 1px solid var(--rule);
+    background: var(--surface);
+    padding: var(--s4) var(--gutter);
+  }
+  .tab {
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: var(--s3);
+    min-height: 44px;
+    padding: 0 var(--s3) 0 0;
+    border-radius: var(--r-sm);
+    font-size: var(--t-sm);
+    color: var(--ink-2);
+  }
+  .tab[aria-current='page'] {
+    background: var(--surface-2);
+    color: var(--kaavi-ink);
+    font-weight: 600;
+  }
+  .tab:hover {
+    background: var(--surface-2);
+    color: var(--ink);
+  }
+  .tab[aria-current='page']:hover {
+    color: var(--kaavi-ink);
+  }
+  .main {
+    padding-bottom: calc(var(--s7) + 60px);
+  }
+  /* The month is a card in the column here, not a band across the window. */
+  .kolam-band {
+    margin-inline: 0;
+    border-radius: var(--r-md);
+    overflow: hidden;
+    padding: var(--s4);
+  }
+  .kolam-inner {
+    max-width: none;
+  }
+  /* The compose button belongs to the writing column, not the window corner. */
+  .fab.fab {
+    right: max(var(--gutter), calc(100vw - var(--rail-w) - var(--writing-w) - var(--gutter)));
+    bottom: var(--s5);
+  }
+}
+@media (min-width: 1292px) {
+  .page-today {
+    max-width: var(--group-w);
+  }
+  .today {
+    grid-template-columns: minmax(0, 1fr) var(--month-w);
+    column-gap: var(--group-gap);
+    align-items: start;
+  }
+  .today-side {
+    grid-area: 1 / 2;
+    max-width: none;
+  }
+  .today-main {
+    grid-area: 1 / 1;
+    max-width: none;
+  }
+}
+

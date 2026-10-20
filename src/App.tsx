@@ -10,7 +10,7 @@ import type { EntryType } from './db/types'
 import { useI18n, type T } from './i18n'
 import type { MessageKey } from './i18n/en'
 import { OfflineBar, PwaBanners } from './pwa/PwaBits'
-import { Today, TodayKolam } from './screens/Today'
+import { Today } from './screens/Today'
 
 const Lists = lazy(() => import('./screens/Lists').then((m) => ({ default: m.Lists })))
 const Notes = lazy(() => import('./screens/Lists').then((m) => ({ default: m.Notes })))
@@ -140,26 +140,23 @@ export default function App() {
       <header>
         <OfflineBar />
         <div className="topbar">
-          <div className="topbar-row">
-            <a className="brand" href={href({ name: 'today' })}>
-              <NotebookPen size={16} aria-hidden />
-              {t('app.name')}
-            </a>
-            <div style={{ display: 'flex', gap: 'var(--s2)', alignItems: 'center' }}>
-              <IconButton label={t('nav.search')} href={href({ name: 'search' })} className="on-kaavi">
-                <SearchIcon aria-hidden />
-              </IconButton>
-              <BackupChip />
-            </div>
-          </div>
+          <a className="brand" href={href({ name: 'today' })}>
+            <NotebookPen size={16} aria-hidden />
+            {t('app.name')}
+          </a>
           {title && (
-            <div className="topbar-row" style={{ display: 'block', marginTop: 'var(--s2)' }}>
+            <div className="page-heading">
               <h1 className="page-title">{title}</h1>
               {sub && <p className="page-sub">{sub}</p>}
             </div>
           )}
+          <div className="topbar-actions">
+            <IconButton label={t('nav.search')} href={href({ name: 'search' })} className="on-kaavi">
+              <SearchIcon aria-hidden />
+            </IconButton>
+            <BackupChip />
+          </div>
         </div>
-        {route.name === 'today' && <TodayKolam date={date} />}
       </header>
 
       <nav className="tabs" aria-label={t('nav.main')}>
@@ -173,18 +170,20 @@ export default function App() {
 
       <main className="main" id="main" ref={mainRef} tabIndex={-1}>
         <PwaBanners />
-        <Suspense fallback={<p className="muted">{t('common.loading')}</p>}>
-          {route.name === 'today' && <Today date={date} />}
-          {route.name === 'notes' && <Notes tag={route.tag} />}
-          {route.name === 'tasks' && <Tasks />}
-          {route.name === 'lists' && <Lists />}
-          {route.name === 'journal' && <Journal />}
-          {route.name === 'search' && <Search />}
-          {route.name === 'settings' && <Settings />}
-          {route.name === 'trash' && <Trash />}
-          {route.name === 'entry' && <EntryEditor id={route.id} />}
-          {route.name === 'not-found' && <NotFound />}
-        </Suspense>
+        <div className={route.name === 'today' ? 'page page-today' : 'page'}>
+          <Suspense fallback={<p className="muted">{t('common.loading')}</p>}>
+            {route.name === 'today' && <Today date={date} />}
+            {route.name === 'notes' && <Notes tag={route.tag} />}
+            {route.name === 'tasks' && <Tasks />}
+            {route.name === 'lists' && <Lists />}
+            {route.name === 'journal' && <Journal />}
+            {route.name === 'search' && <Search />}
+            {route.name === 'settings' && <Settings />}
+            {route.name === 'trash' && <Trash />}
+            {route.name === 'entry' && <EntryEditor id={route.id} />}
+            {route.name === 'not-found' && <NotFound />}
+          </Suspense>
+        </div>
       </main>
 
       {route.name !== 'entry' && route.name !== 'settings' && <Compose />}

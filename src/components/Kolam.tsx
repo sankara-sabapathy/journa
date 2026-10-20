@@ -90,42 +90,101 @@ export function Kolam({ year, month, selected, onMonth, onYear, onPick }: Props)
   return (
     <section className="kolam-band" aria-labelledby="kolam-title">
       <div className="kolam-inner">
-        <div className="kolam-head">
-          <h2 id="kolam-title">
-            <button
-              type="button"
-              className="kolam-title-button"
-              aria-expanded={picking}
-              aria-label={`${monthName}, ${t('kolam.pick')}`}
-              onClick={() => setPicking((v) => !v)}
-            >
-              {monthName}
-              <ChevronDown aria-hidden />
-            </button>
-          </h2>
-          <div className="kolam-nav">
-            <IconButton label={t('kolam.prevYear')} className="on-kaavi" onClick={() => onYear(-1)}>
-              <ChevronsLeft aria-hidden />
-            </IconButton>
-            <IconButton label={t('kolam.prev')} className="on-kaavi" onClick={() => onMonth(-1)}>
-              <ChevronLeft aria-hidden />
-            </IconButton>
-            <IconButton
-              label={t('kolam.next')}
-              className="on-kaavi"
-              onClick={() => onMonth(1)}
-              disabled={new Date(year, month + 1, 1) > new Date()}
-            >
-              <ChevronRight aria-hidden />
-            </IconButton>
-            <IconButton
-              label={t('kolam.nextYear')}
-              className="on-kaavi"
-              onClick={() => onYear(1)}
-              disabled={year + 1 > new Date().getFullYear()}
-            >
-              <ChevronsRight aria-hidden />
-            </IconButton>
+        <div className="kolam-side">
+          <div className="kolam-head">
+            <h2 id="kolam-title">
+              <button
+                type="button"
+                className="kolam-title-button"
+                aria-expanded={picking}
+                aria-label={`${monthName}, ${t('kolam.pick')}`}
+                onClick={() => setPicking((v) => !v)}
+              >
+                {monthName}
+                <ChevronDown aria-hidden />
+              </button>
+            </h2>
+            <div className="kolam-nav">
+              <IconButton label={t('kolam.prevYear')} className="on-kaavi" onClick={() => onYear(-1)}>
+                <ChevronsLeft aria-hidden />
+              </IconButton>
+              <IconButton label={t('kolam.prev')} className="on-kaavi" onClick={() => onMonth(-1)}>
+                <ChevronLeft aria-hidden />
+              </IconButton>
+              <IconButton
+                label={t('kolam.next')}
+                className="on-kaavi"
+                onClick={() => onMonth(1)}
+                disabled={new Date(year, month + 1, 1) > new Date()}
+              >
+                <ChevronRight aria-hidden />
+              </IconButton>
+              <IconButton
+                label={t('kolam.nextYear')}
+                className="on-kaavi"
+                onClick={() => onYear(1)}
+                disabled={year + 1 > new Date().getFullYear()}
+              >
+                <ChevronsRight aria-hidden />
+              </IconButton>
+            </div>
+          </div>
+          <p className="kolam-count">{t('kolam.written', { count: written.size })}</p>
+        </div>
+        <div className="kolam-grid">
+          <div className="kolam-weekdays" aria-hidden>
+            {weekdays.map((w, i) => (
+              <span key={i}>{w}</span>
+            ))}
+          </div>
+          <div className="kolam">
+            <svg viewBox={`0 0 ${CELL * 7} ${ROW * rows}`} aria-hidden>
+              {paths.map((d, i) => (
+                <path key={`${from}-${i}`} d={d} className="kolam-line drawn" pathLength={1} style={{ '--len': 1 } as React.CSSProperties} />
+              ))}
+              {cells.map((c) => {
+                const cx = c.col * CELL + CELL / 2
+                const cy = c.row * ROW + ROW / 2
+                const future = c.date > today
+                if (c.date === today)
+                  return <circle key={c.date} cx={cx} cy={cy} r={5} fill="var(--turmeric)" />
+                return <circle key={c.date} cx={cx} cy={cy} r={future ? 1.6 : 2.6} fill="var(--rice)" opacity={future ? 0.45 : 1} />
+              })}
+              {cells
+                .filter((c) => c.date === selected && c.date !== today)
+                .map((c) => (
+                  <circle
+                    key="sel"
+                    cx={c.col * CELL + CELL / 2}
+                    cy={c.row * ROW + ROW / 2}
+                    r={R + 2}
+                    fill="none"
+                    stroke="var(--turmeric)"
+                    strokeWidth={2}
+                  />
+                ))}
+            </svg>
+            <div className="kolam-cells" style={{ gridTemplateRows: `repeat(${rows}, 1fr)` }}>
+              {cells.map((c) => {
+                const label = fmt.date(new Date(year, month, c.day), { day: 'numeric', month: 'long' })
+                const future = c.date > today
+                const style = { gridColumn: c.col + 1, gridRow: c.row + 1 }
+                if (future) return <span key={c.date} style={style} aria-hidden />
+                return (
+                  <a
+                    key={c.date}
+                    className="kolam-cell"
+                    style={style}
+                    href={href({ name: 'today', date: c.date === today ? undefined : c.date })}
+                    aria-current={c.date === selected ? 'date' : undefined}
+                    aria-label={
+                      (c.date === today ? `${t('kolam.today')}, ` : '') +
+                      t(written.has(c.date) ? 'kolam.day' : 'kolam.dayEmpty', { date: label })
+                    }
+                  />
+                )
+              })}
+            </div>
           </div>
         </div>
         {picking && (
@@ -177,61 +236,6 @@ export function Kolam({ year, month, selected, onMonth, onYear, onPick }: Props)
             </div>
           </div>
         )}
-        <p className="kolam-count">{t('kolam.written', { count: written.size })}</p>
-        <div className="kolam-weekdays" aria-hidden>
-          {weekdays.map((w, i) => (
-            <span key={i}>{w}</span>
-          ))}
-        </div>
-        <div className="kolam">
-          <svg viewBox={`0 0 ${CELL * 7} ${ROW * rows}`} aria-hidden>
-            {paths.map((d, i) => (
-              <path key={`${from}-${i}`} d={d} className="kolam-line drawn" pathLength={1} style={{ '--len': 1 } as React.CSSProperties} />
-            ))}
-            {cells.map((c) => {
-              const cx = c.col * CELL + CELL / 2
-              const cy = c.row * ROW + ROW / 2
-              const future = c.date > today
-              if (c.date === today)
-                return <circle key={c.date} cx={cx} cy={cy} r={5} fill="var(--turmeric)" />
-              return <circle key={c.date} cx={cx} cy={cy} r={future ? 1.6 : 2.6} fill="var(--rice)" opacity={future ? 0.45 : 1} />
-            })}
-            {cells
-              .filter((c) => c.date === selected && c.date !== today)
-              .map((c) => (
-                <circle
-                  key="sel"
-                  cx={c.col * CELL + CELL / 2}
-                  cy={c.row * ROW + ROW / 2}
-                  r={R + 2}
-                  fill="none"
-                  stroke="var(--turmeric)"
-                  strokeWidth={2}
-                />
-              ))}
-          </svg>
-          <div className="kolam-cells" style={{ gridTemplateRows: `repeat(${rows}, 1fr)` }}>
-            {cells.map((c) => {
-              const label = fmt.date(new Date(year, month, c.day), { day: 'numeric', month: 'long' })
-              const future = c.date > today
-              const style = { gridColumn: c.col + 1, gridRow: c.row + 1 }
-              if (future) return <span key={c.date} style={style} aria-hidden />
-              return (
-                <a
-                  key={c.date}
-                  className="kolam-cell"
-                  style={style}
-                  href={href({ name: 'today', date: c.date === today ? undefined : c.date })}
-                  aria-current={c.date === selected ? 'date' : undefined}
-                  aria-label={
-                    (c.date === today ? `${t('kolam.today')}, ` : '') +
-                    t(written.has(c.date) ? 'kolam.day' : 'kolam.dayEmpty', { date: label })
-                  }
-                />
-              )
-            })}
-          </div>
-        </div>
       </div>
     </section>
   )
