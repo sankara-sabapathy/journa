@@ -19,10 +19,10 @@ void syncEngine.start()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <I18nProvider>
-      <ErrorBoundary>
+    <ErrorBoundary>
+      <I18nProvider>
         <App />
-      </ErrorBoundary>
-    </I18nProvider>
+      </I18nProvider>
+    </ErrorBoundary>
   </StrictMode>,
 )

@@ -1,5 +1,4 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
-import { useI18n } from '../i18n'
 
 interface Props {
   children: ReactNode
@@ -12,6 +11,9 @@ interface State {
 /**
  * Catches a render crash so the app shows a calm message instead of a blank
  * page. The entries live in IndexedDB, so nothing is lost by reloading.
+ *
+ * The fallback deliberately uses no context or hooks: it has to work even
+ * when the providers above it are what failed.
  */
 export class ErrorBoundary extends Component<Props, State> {
   state: State = { error: null }
@@ -31,13 +33,12 @@ export class ErrorBoundary extends Component<Props, State> {
 }
 
 function CrashScreen() {
-  const { t } = useI18n()
   return (
     <div className="empty not-found">
-      <strong>{t('crash.title')}</strong>
-      <p>{t('crash.text')}</p>
+      <strong>Journa ran into a problem</strong>
+      <p>Your entries are safe on this device. Reload the app to carry on.</p>
       <button type="button" className="btn btn-primary" onClick={() => location.reload()}>
-        {t('crash.reload')}
+        Reload
       </button>
     </div>
   )

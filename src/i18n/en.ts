@@ -252,9 +252,6 @@ export const en = {
   'notFound.text': 'That page doesn’t exist. The link may be wrong, or the entry may have been deleted.',
   'notFound.home': 'Go to Today',
   'entry.notFound': 'That entry is no longer here.',
-  'crash.title': 'Journa ran into a problem',
-  'crash.text': 'Your entries are safe on this device. Reload the app to carry on.',
-  'crash.reload': 'Reload',
 
   'error.unknown': 'Something went wrong. Please try again.',
   'error.network': 'Couldn’t reach the server. Check your connection and try again.',
