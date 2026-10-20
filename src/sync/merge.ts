@@ -25,8 +25,8 @@ export function selectWinningEntries(localById: ReadonlyMap<string, Entry>, inco
     }
     if (remote.deletedAt < local.deletedAt) continue
 
-    const remoteKey = `${remote.title}\0${remote.body}`
-    const localKey = `${local.title}\0${local.body}`
+    const remoteKey = `${remote.title}\0${remote.body}\0${remote.mood ?? ''}`
+    const localKey = `${local.title}\0${local.body}\0${local.mood ?? ''}`
     if (remoteKey > localKey) winners.push(remote)
   }
 

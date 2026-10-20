@@ -103,6 +103,20 @@ describe('export / import', () => {
     expect(md).toContain('- [x] milk\n- [ ] eggs')
     expect(md).toContain('title: "Shop"')
   })
+
+  it('keeps the mood through a backup round trip and in Markdown front matter', async () => {
+    const a = fresh()
+    const j = await a.repo.ensureJournal('2026-10-12')
+    await a.repo.update(j.id, { body: 'Rain.', mood: 2 })
+
+    const text = await backupFileText(undefined, a.database)
+    const b = fresh()
+    const backup = await readBackupFile(text, async () => null)
+    await importBackup(backup!, 'replace', b.database)
+    expect((await b.repo.get(j.id))!.mood).toBe(2)
+
+    expect(entryToMarkdown((await b.repo.get(j.id))!)).toContain('mood: low')
+  })
 })
 
 describe('rotation', () => {

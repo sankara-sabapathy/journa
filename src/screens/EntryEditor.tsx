@@ -3,11 +3,13 @@ import { ArrowDown, ArrowLeft, ArrowUp, Pin, PinOff, Plus, Trash2, X } from 'luc
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { navigate } from '../app/router'
 import { toast } from '../app/toasts'
+import { fromISODate } from '../db/date'
 import { newId, repo } from '../db/repo'
-import type { ChecklistItem, Entry, Priority } from '../db/types'
+import type { ChecklistItem, Entry, Mood, Priority } from '../db/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { IconButton } from '../components/IconButton'
+import { MoodLabel, MoodPicker } from '../components/MoodPicker'
 import { ProgressKolam } from '../components/ProgressKolam'
 import { TaskCheck } from '../components/TaskCheck'
 import { Segmented } from '../components/Segmented'
@@ -72,6 +74,7 @@ function Editor({ initial }: { initial: Entry }) {
   const [priority, setPriority] = useState<Priority | 0>(initial.priority ?? 0)
   const [done, setDone] = useState(Boolean(initial.done))
   const [items, setItems] = useState<ChecklistItem[]>(initial.items ?? [])
+  const [mood, setMood] = useState<Mood | null>(initial.mood ?? null)
   const [mode, setMode] = useState<'edit' | 'split' | 'preview'>('edit')
   // New entries — and journals, which are written daily, not read — open ready to type.
   const [editing, setEditing] = useState(initial.type === 'journal' || (!initial.title && !initial.body && !(initial.items?.length)))
@@ -80,7 +83,10 @@ function Editor({ initial }: { initial: Entry }) {
   const bodyRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
-    if (!initial.title && !initial.body) titleRef.current?.focus()
+    if (initial.title || initial.body) return
+    // Journals are titled by their date, so the writing area is what needs focus.
+    if (initial.type === 'journal') bodyRef.current?.focus()
+    else titleRef.current?.focus()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const setItemsAndSave = (next: ChecklistItem[]) => {
@@ -100,7 +106,7 @@ function Editor({ initial }: { initial: Entry }) {
   const viewTitle =
     title ||
     (initial.type === 'journal' && initial.date
-      ? fmt.date(new Date(`${initial.date}T00:00`), { weekday: 'long', day: 'numeric', month: 'long' })
+      ? fmt.date(fromISODate(initial.date), { weekday: 'long', day: 'numeric', month: 'long' })
       : t('entry.untitled'))
 
   const editorBox = (
@@ -185,21 +191,37 @@ function Editor({ initial }: { initial: Entry }) {
               label={t(done ? 'task.markOpen' : 'task.markDone', { title: title || t('entry.untitled') })}
             />
           )}
-          <input
-            id="title"
-            ref={titleRef}
-            className="title-input"
-            aria-label={t('entry.title')}
-            value={title}
-            placeholder={t('entry.titlePlaceholder')}
-            onChange={(e) => {
-              setTitle(e.target.value)
-              save({ title: e.target.value })
-            }}
-            enterKeyHint="next"
-          />
+          {initial.type === 'journal' ? (
+            <h1 className="title-view">{viewTitle}</h1>
+          ) : (
+            <input
+              id="title"
+              ref={titleRef}
+              className="title-input"
+              aria-label={t('entry.title')}
+              value={title}
+              placeholder={t('entry.titlePlaceholder')}
+              onChange={(e) => {
+                setTitle(e.target.value)
+                save({ title: e.target.value })
+              }}
+              enterKeyHint="next"
+            />
+          )}
         </div>
       </div>
+
+      {initial.type === 'journal' && (
+        <div className="field mood-field">
+          <MoodPicker
+            mood={mood}
+            onChange={(next) => {
+              setMood(next)
+              save({ mood: next ?? undefined }, true)
+            }}
+          />
+        </div>
+      )}
 
       {initial.type === 'task' && (
         <div className="meta-grid">
@@ -375,6 +397,7 @@ function Editor({ initial }: { initial: Entry }) {
                 />
               )}
               <h1 className="title-view">{viewTitle}</h1>
+              {initial.type === 'journal' && <MoodLabel mood={mood} />}
             </div>
           </div>
 

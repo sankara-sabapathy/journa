@@ -18,6 +18,7 @@ export const entrySchema = z.object({
   items: z
     .array(z.object({ id: z.string(), text: z.string(), done: z.boolean() }))
     .optional(),
+  mood: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5)]).optional(),
   date: isoDate.optional(),
   createdAt: z.number(),
   updatedAt: z.number(),

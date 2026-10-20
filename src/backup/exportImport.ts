@@ -1,8 +1,11 @@
 import { strToU8, zipSync } from 'fflate'
 import { db as defaultDb, type JournaDB } from '../db/db'
-import type { Entry } from '../db/types'
+import type { Entry, Mood } from '../db/types'
 import { decryptText, encryptText } from './crypto'
 import { backupSchema, BackupFormatError, makeBackup, parseBackupText, type Backup } from './format'
+
+/** Mood words for Markdown front matter; the file format is not localised. */
+const MOOD_WORDS: Record<Mood, string> = { 1: 'rough', 2: 'low', 3: 'okay', 4: 'good', 5: 'great' }
 
 export async function exportBackup(database: JournaDB = defaultDb): Promise<Backup> {
   return makeBackup(await database.entries.toArray())
@@ -98,6 +101,7 @@ export function entryToMarkdown(e: Entry): string {
     e.type === 'task' ? `done: ${Boolean(e.done)}` : null,
     e.due ? `due: ${e.due}` : null,
     e.priority ? `priority: ${e.priority}` : null,
+    e.mood ? `mood: ${MOOD_WORDS[e.mood]}` : null,
     e.pinned ? 'pinned: true' : null,
     `created: ${new Date(e.createdAt).toISOString()}`,
     `updated: ${new Date(e.updatedAt).toISOString()}`,

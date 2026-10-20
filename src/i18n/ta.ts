@@ -19,6 +19,12 @@ export const ta: Messages = {
 
   'today.title': 'இன்று',
   'today.journal': 'நாட்குறிப்பு',
+  'today.mood': 'மனநிலை',
+  'mood.rough': 'கடினம்',
+  'mood.low': 'மந்தம்',
+  'mood.ok': 'சரி',
+  'mood.good': 'நன்று',
+  'mood.great': 'அருமை',
   'today.journalPlaceholder': 'இன்று எப்படி இருந்தது?',
   'today.tasks': 'பணிகள்',
   'today.tasksLeft': '{count, plural, one {# மீதம்} other {# மீதம்}}',

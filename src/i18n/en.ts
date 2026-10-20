@@ -17,6 +17,12 @@ export const en = {
 
   'today.title': 'Today',
   'today.journal': 'Journal',
+  'today.mood': 'Mood',
+  'mood.rough': 'Rough',
+  'mood.low': 'Low',
+  'mood.ok': 'Okay',
+  'mood.good': 'Good',
+  'mood.great': 'Great',
   'today.journalPlaceholder': 'How was today?',
   'today.tasks': 'Tasks',
   'today.tasksLeft': '{count, plural, one {# left} other {# left}}',

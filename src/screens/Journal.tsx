@@ -1,8 +1,10 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { href } from '../app/router'
+import { fromISODate } from '../db/date'
 import { repo } from '../db/repo'
 import { useI18n } from '../i18n'
 import { Empty } from '../components/EntryRows'
+import { MoodMark } from '../components/MoodPicker'
 
 function excerpt(body: string): string {
   const first = body.split('\n').map((l) => l.trim()).find((l) => l.length > 0) ?? ''
@@ -14,7 +16,7 @@ export function Journal() {
   const { t, fmt } = useI18n()
   const rows = useLiveQuery(() => repo.list('journal'), []) ?? []
   const shown = [...rows]
-    .filter((e) => e.date)
+    .filter((e) => e.date && (e.body.trim() !== '' || e.mood !== undefined))
     .sort((a, b) => (b.date ?? '').localeCompare(a.date ?? '') || b.updatedAt - a.updatedAt)
   return (
     <div>
@@ -24,10 +26,11 @@ export function Journal() {
             <li key={e.id} className="row">
               <a className="row-main" href={href({ name: 'entry', id: e.id })}>
                 <span className="row-title">
-                  {e.date ? fmt.date(new Date(`${e.date}T00:00:00`), { weekday: 'long', day: 'numeric', month: 'long' }) : t('entry.untitled')}
+                  {e.date ? fmt.date(fromISODate(e.date), { weekday: 'long', day: 'numeric', month: 'long' }) : t('entry.untitled')}
                 </span>
                 {excerpt(e.body) && <span className="row-snippet">{excerpt(e.body)}</span>}
               </a>
+              <MoodMark mood={e.mood} />
             </li>
           ))}
         </ul>

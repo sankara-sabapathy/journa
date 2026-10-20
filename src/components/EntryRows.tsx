@@ -4,6 +4,7 @@ import { fromISODate, toISODate } from '../db/date'
 import { repo } from '../db/repo'
 import type { Entry } from '../db/types'
 import { useI18n } from '../i18n'
+import { MoodMark } from './MoodPicker'
 import { ProgressKolam } from './ProgressKolam'
 import { TaskCheck } from './TaskCheck'
 
@@ -89,6 +90,7 @@ export function EntryRow({ e, showType }: { e: Entry; showType?: boolean }) {
           ))}
         </span>
       </a>
+      {e.type === 'journal' ? <MoodMark mood={e.mood} /> : null}
       {e.pinned ? <Pin className="pin-mark" size={16} aria-label={t('entry.pin')} /> : null}
     </li>
   )

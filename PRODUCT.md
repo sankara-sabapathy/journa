@@ -36,6 +36,7 @@ Journa is one private place for notes, tasks, checklists and a daily journal. It
 ## Capabilities and Constraints
 
 - Entry types: note, task (done, due date, priority), checklist (items), journal (one per day).
+- Journal days carry an optional one-tap mood (rough → great). A mood-only day still counts as written in the kolam; the mood travels with the entry through sync, JSON backups and the Markdown export.
 - Tags, pinning, full-text search, Trash with restore.
 - Export: lossless JSON and a Markdown zip. Import: validated, with merge (newest wins) or replace.
 - Automatic folder backup uses the File System Access API: Chromium desktop only. Other browsers get manual export plus backup reminders.

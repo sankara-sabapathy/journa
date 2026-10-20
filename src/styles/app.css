@@ -546,6 +546,9 @@ dialog [data-slot='button'],
   .fab {
     transition: none;
   }
+  .mood {
+    transition: none;
+  }
 }
 
 /* ---------- sections & lists ---------- */
@@ -611,6 +614,63 @@ dialog [data-slot='button'],
 .conflict-diff [data-kind='add'] {
   color: var(--leaf);
   background: color-mix(in srgb, var(--leaf) 10%, transparent);
+}
+/* ---------- mood ---------- */
+.mood-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+}
+.mood {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--rule);
+  background: var(--surface);
+  color: var(--ink-2);
+  display: grid;
+  place-items: center;
+  transition: background var(--dur) var(--ease-out), border-color var(--dur) var(--ease-out),
+    color var(--dur) var(--ease-out);
+}
+.mood:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+.mood[aria-pressed='true'] {
+  background: var(--kaavi);
+  border-color: var(--kaavi);
+  color: var(--rice);
+}
+.mood[aria-pressed='true']:hover {
+  background: var(--kaavi-deep);
+  border-color: var(--kaavi-deep);
+  color: var(--rice);
+}
+/* The global focus ring rounds to --r-sm; keep the face circular. */
+.mood:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: 50%;
+}
+.mood-mark {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  color: var(--ink-2);
+}
+.mood-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s1);
+  flex: 0 0 auto;
+  color: var(--ink-2);
+  font-size: var(--t-sm);
+  font-weight: 600;
+}
+.mood-field {
+  margin-bottom: var(--s2);
 }
 .swatches {
   display: flex;
@@ -763,6 +823,10 @@ dialog [data-slot='button'],
   padding: var(--s3) var(--s4);
   max-width: var(--measure);
 }
+/* The face row sits at the top of the card: the bottom-right corner belongs to the compose button. */
+.journal-card > .mood-picker {
+  margin-bottom: var(--s3);
+}
 .journal-card textarea {
   width: 100%;
   min-height: 7.5em;
@@ -782,8 +846,10 @@ dialog [data-slot='button'],
 }
 .journal-foot {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   justify-content: space-between;
-  gap: var(--s3);
+  gap: var(--s2) var(--s3);
   font-size: var(--t-xs);
   color: var(--ink-2);
   margin-top: var(--s2);

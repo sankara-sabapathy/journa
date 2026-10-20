@@ -145,6 +145,7 @@ function AccountPanel() {
   const [email, setEmail] = useState('')
   const [code, setCode] = useState('')
   const [busy, setBusy] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
 
   async function run(fn: () => Promise<unknown>) {
     setBusy(true)
@@ -226,7 +227,6 @@ function AccountPanel() {
   }
 
   const syncing = account.status === 'syncing'
-  const [confirmDelete, setConfirmDelete] = useState(false)
   async function eraseEverything() {
     setBusy(true)
     try {

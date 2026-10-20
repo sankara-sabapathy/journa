@@ -62,6 +62,21 @@ describe('repo', () => {
     expect([...days]).toEqual(['2026-10-01'])
   })
 
+  it('counts a mood check-in as a written day', async () => {
+    const a = await ctx.repo.ensureJournal('2026-10-01')
+    await ctx.repo.update(a.id, { mood: 4 })
+    const days = await ctx.repo.writtenDays('2026-10-01', '2026-10-31')
+    expect([...days]).toEqual(['2026-10-01'])
+  })
+
+  it('stores a mood and removes it again when cleared', async () => {
+    const a = await ctx.repo.ensureJournal('2026-10-01')
+    await ctx.repo.update(a.id, { mood: 5 })
+    expect((await ctx.repo.get(a.id))!.mood).toBe(5)
+    await ctx.repo.update(a.id, { mood: undefined })
+    expect((await ctx.repo.get(a.id))!.mood).toBeUndefined()
+  })
+
   it('discards untouched new entries but keeps filled ones and journals', async () => {
     const blank = await ctx.repo.create({ type: 'note' })
     const kept = await ctx.repo.create({ type: 'note', title: 'x' })

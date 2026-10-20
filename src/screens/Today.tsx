@@ -3,10 +3,11 @@ import { useEffect, useRef, useState } from 'react'
 import { href } from '../app/router'
 import { fromISODate, toISODate } from '../db/date'
 import { repo } from '../db/repo'
-import type { Entry } from '../db/types'
+import type { Entry, Mood } from '../db/types'
 import { EntryRow, Empty, TaskRow } from '../components/EntryRows'
 import { Kolam } from '../components/Kolam'
 import { MarkdownToolbar } from '../components/MarkdownToolbar'
+import { MoodPicker } from '../components/MoodPicker'
 import { useI18n } from '../i18n'
 
 export function wordCount(s: string) {
@@ -35,18 +36,36 @@ export function TodayKolam({ date }: { date: string }) {
 function JournalEditor({ date, entry }: { date: string; entry: Entry | undefined }) {
   const { t, fmt } = useI18n()
   const [text, setText] = useState(entry?.body ?? '')
+  const [mood, setMood] = useState<Mood | null>(entry?.mood ?? null)
   const [saved, setSaved] = useState<number | null>(entry?.updatedAt ?? null)
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
-  const pending = useRef<string | null>(null)
+  const dirty = useRef(false)
+  const bodyRef = useRef(entry?.body ?? '')
+  const moodRef = useRef<Mood | null>(entry?.mood ?? null)
   const textRef = useRef<HTMLTextAreaElement>(null)
 
   async function flush() {
-    if (pending.current === null) return
-    const body = pending.current
-    pending.current = null
-    const e = await repo.ensureJournal(date)
-    await repo.update(e.id, { body })
+    if (!dirty.current) return
+    dirty.current = false
+    const body = bodyRef.current
+    const moodValue = moodRef.current
+    const existing = await repo.journalFor(date)
+    if (!existing) {
+      // Nothing written for this day yet: only create the entry if there is something to keep.
+      if (!body.trim() && moodValue === null) return
+      const e = await repo.ensureJournal(date)
+      await repo.update(e.id, { body, mood: moodValue ?? undefined })
+    } else {
+      // `mood: undefined` removes the field, so clearing a face really clears it.
+      await repo.update(existing.id, { body, mood: moodValue ?? undefined })
+    }
     setSaved(Date.now())
+  }
+
+  function schedule() {
+    dirty.current = true
+    clearTimeout(timer.current)
+    timer.current = setTimeout(() => void flush(), 500)
   }
 
   useEffect(() => () => void flush(), []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -54,13 +73,20 @@ function JournalEditor({ date, entry }: { date: string; entry: Entry | undefined
   const isToday = date === toISODate()
   return (
     <div className="panel journal-card">
+      <MoodPicker
+        mood={mood}
+        onChange={(next) => {
+          setMood(next)
+          moodRef.current = next
+          schedule()
+        }}
+      />
       <MarkdownToolbar
         target={textRef}
         onChange={(next) => {
           setText(next)
-          pending.current = next
-          clearTimeout(timer.current)
-          timer.current = setTimeout(() => void flush(), 500)
+          bodyRef.current = next
+          schedule()
         }}
       />
       <textarea
@@ -71,9 +97,8 @@ function JournalEditor({ date, entry }: { date: string; entry: Entry | undefined
         placeholder={t('today.journalPlaceholder')}
         onChange={(e) => {
           setText(e.target.value)
-          pending.current = e.target.value
-          clearTimeout(timer.current)
-          timer.current = setTimeout(() => void flush(), 500)
+          bodyRef.current = e.target.value
+          schedule()
         }}
         onBlur={() => void flush()}
         rows={isToday ? 5 : 8}

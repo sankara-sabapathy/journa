@@ -1,8 +1,8 @@
 export type EntryType = 'note' | 'task' | 'checklist' | 'journal'
+export type Mood = 1 | 2 | 3 | 4 | 5
+export type Priority = 1 | 2 | 3
 
 export const ENTRY_TYPES: readonly EntryType[] = ['journal', 'note', 'task', 'checklist']
-
-export type Priority = 1 | 2 | 3
 
 export interface ChecklistItem {
   id: string
@@ -26,8 +26,9 @@ export interface Entry {
   priority?: Priority
   // checklist
   items?: ChecklistItem[]
-  // journal: one per day, YYYY-MM-DD
+  // journal
   date?: string
+  mood?: Mood
   createdAt: number
   updatedAt: number
   /** Set when moved to Trash. 0 means not deleted (indexable). */

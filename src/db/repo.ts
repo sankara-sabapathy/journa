@@ -122,11 +122,12 @@ export function createRepo(database: JournaDB = db) {
       })
     },
 
+    /** Days the user showed up: journal text, a mood check-in, or both. */
     async writtenDays(from: string, to: string): Promise<Set<string>> {
       const rows = await database.entries.where('date').between(from, to, true, true).toArray()
       return new Set(
         rows
-          .filter((e) => e.type === 'journal' && e.deletedAt === 0 && e.body.trim() !== '')
+          .filter((e) => e.type === 'journal' && e.deletedAt === 0 && (e.body.trim() !== '' || e.mood !== undefined))
           .map((e) => e.date!),
       )
     },

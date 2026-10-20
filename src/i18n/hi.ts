@@ -19,6 +19,12 @@ export const hi: Messages = {
 
   'today.title': 'आज',
   'today.journal': 'डायरी',
+  'today.mood': 'मनोदशा',
+  'mood.rough': 'कठिन',
+  'mood.low': 'उदास',
+  'mood.ok': 'ठीक',
+  'mood.good': 'अच्छा',
+  'mood.great': 'बढ़िया',
   'today.journalPlaceholder': 'आज का दिन कैसा रहा?',
   'today.tasks': 'काम',
   'today.tasksLeft': '{count, plural, one {# बाकी} other {# बाकी}}',
