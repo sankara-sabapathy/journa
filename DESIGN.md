@@ -131,6 +131,7 @@ Flat. Panels use a 1px rule, never a shadow. Only floating things (compose butto
 
 - **IconButton** (`src/components/IconButton.tsx`): coss ghost button + coss tooltip kept mounted, linked with `data-ui-tooltip`. Every icon-only control uses it.
 - **MoodPicker** (`src/components/MoodPicker.tsx`): five 44px circular lucide faces, pressed = kaavi. It sits at the top of the journal card so the compose button never covers a face. `MoodMark` is the read-only form used in lists.
+- **Interview** (`src/components/Interview.tsx`): the journal card in asking mode. A `ProgressKolam` of steps, the question as an 18px heading, then the mood faces or one textarea; "Write freely" on the left, Back and a primary Next/Finish on the right. Question text lives in `src/journal/interview.ts` (Journa's own, translated) and the catalogues (`ask.q.*`); a user's own set (`src/journal/sets.ts`) is asked in their order and in their words.
 - **Segmented** (`src/components/Segmented.tsx`): coss ToggleGroup, single choice, pressed = kaavi.
 - **Empty states** (`src/screens/NotFound.tsx`): a quiet compass, one sentence and a way back — for a link that points at nothing, and for a crash that a reload can clear.
 - **TaskCheck**: coss Checkbox at 24px, leaf when checked.

@@ -2,7 +2,7 @@
 
 Private notes, tasks, checklists and a daily journal in one installable web app. Works fully offline. Free, no account needed, no tracking. (Optional sign-in is planned; it will never be required.)
 
-- **Today**: write the day's journal entry; the month is drawn as a kolam, with each day you wrote looped into one line.
+- **Today**: Journa asks about your day, one question at a time, and writes the answers into the day's journal; or write freely. In Settings you can write your own question sets, one question per line, and pick the set Today asks from. The month is drawn as a kolam, with each day you wrote looped into one line.
 - **Notes, tasks, lists**: Markdown notes with tags and pinning; tasks with due dates and priority; checklists.
 - **Search** across everything, in English, Tamil or Hindi. **Trash** with restore.
 - **Backups you own**:

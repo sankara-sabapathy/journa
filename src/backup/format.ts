@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import type { Entry } from '../db/types'
+import type { QuestionSet } from '../journal/sets'
 
 export const BACKUP_VERSION = 1
 
@@ -25,11 +26,21 @@ export const entrySchema = z.object({
   deletedAt: z.number(),
 })
 
+export const questionSetSchema = z.object({
+  id: z.string().min(1),
+  name: z.string(),
+  questions: z.array(z.string()),
+  updatedAt: z.number(),
+})
+
 export const backupSchema = z.object({
   app: z.literal('journa'),
   version: z.literal(BACKUP_VERSION),
   exportedAt: z.number(),
   entries: z.array(entrySchema),
+  /** Older backups have none; they must keep the sets already on the device. */
+  questionSets: z.array(questionSetSchema).optional(),
+  activeQuestionSet: z.string().optional(),
 })
 
 export type Backup = z.infer<typeof backupSchema>
@@ -46,8 +57,12 @@ export const encryptedSchema = z.object({
 
 export type EncryptedBackup = z.infer<typeof encryptedSchema>
 
-export function makeBackup(entries: Entry[], now = Date.now()): Backup {
-  return { app: 'journa', version: BACKUP_VERSION, exportedAt: now, entries }
+export function makeBackup(
+  entries: Entry[],
+  now = Date.now(),
+  extras: { questionSets?: QuestionSet[]; activeQuestionSet?: string } = {},
+): Backup {
+  return { app: 'journa', version: BACKUP_VERSION, exportedAt: now, entries, ...extras }
 }
 
 export class BackupFormatError extends Error {}

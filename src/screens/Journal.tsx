@@ -7,7 +7,9 @@ import { Empty } from '../components/EntryRows'
 import { MoodMark } from '../components/MoodPicker'
 
 function excerpt(body: string): string {
-  const first = body.split('\n').map((l) => l.trim()).find((l) => l.length > 0) ?? ''
+  const lines = body.split('\n').map((l) => l.trim()).filter((l) => l.length > 0)
+  // Asked-for entries open with a question heading; the first answer says more.
+  const first = (lines.find((l) => !l.startsWith('#')) ?? lines[0]?.replace(/^#+\s*/, '') ?? '').trim()
   return first.length > 140 ? `${first.slice(0, 140)}…` : first
 }
 

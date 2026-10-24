@@ -1,14 +1,18 @@
 import { useLiveQuery } from 'dexie-react-hooks'
+import { MessageCircleQuestionMark } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { href } from '../app/router'
 import { fromISODate, toISODate } from '../db/date'
 import { repo } from '../db/repo'
 import type { Entry, Mood } from '../db/types'
 import { EntryRow, Empty, TaskRow } from '../components/EntryRows'
+import { Interview, type JournalDoc } from '../components/Interview'
 import { Kolam } from '../components/Kolam'
 import { MarkdownToolbar } from '../components/MarkdownToolbar'
 import { MoodPicker } from '../components/MoodPicker'
 import { useI18n } from '../i18n'
+import { isBlank, questionsFor } from '../journal/interview'
+import { setsStore, type QuestionSet } from '../journal/sets'
 
 export function wordCount(s: string) {
   return s.trim() ? s.trim().split(/\s+/u).length : 0
@@ -33,33 +37,33 @@ export function TodayKolam({ date }: { date: string }) {
   )
 }
 
-function JournalEditor({ date, entry }: { date: string; entry: Entry | undefined }) {
+function JournalEditor({
+  date,
+  doc,
+  savedAt,
+  set,
+  onAsk,
+}: {
+  date: string
+  doc: JournalDoc
+  savedAt: number | null
+  set: QuestionSet | null
+  onAsk: (doc: JournalDoc) => void
+}) {
   const { t, fmt } = useI18n()
-  const [text, setText] = useState(entry?.body ?? '')
-  const [mood, setMood] = useState<Mood | null>(entry?.mood ?? null)
-  const [saved, setSaved] = useState<number | null>(entry?.updatedAt ?? null)
+  const [text, setText] = useState(doc.body)
+  const [mood, setMood] = useState<Mood | null>(doc.mood)
+  const [saved, setSaved] = useState<number | null>(savedAt)
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
   const dirty = useRef(false)
-  const bodyRef = useRef(entry?.body ?? '')
-  const moodRef = useRef<Mood | null>(entry?.mood ?? null)
+  const bodyRef = useRef(doc.body)
+  const moodRef = useRef<Mood | null>(doc.mood)
   const textRef = useRef<HTMLTextAreaElement>(null)
 
   async function flush() {
     if (!dirty.current) return
     dirty.current = false
-    const body = bodyRef.current
-    const moodValue = moodRef.current
-    const existing = await repo.journalFor(date)
-    if (!existing) {
-      // Nothing written for this day yet: only create the entry if there is something to keep.
-      if (!body.trim() && moodValue === null) return
-      const e = await repo.ensureJournal(date)
-      await repo.update(e.id, { body, mood: moodValue ?? undefined })
-    } else {
-      // `mood: undefined` removes the field, so clearing a face really clears it.
-      await repo.update(existing.id, { body, mood: moodValue ?? undefined })
-    }
-    setSaved(Date.now())
+    if (await repo.saveJournal(date, bodyRef.current, moodRef.current)) setSaved(Date.now())
   }
 
   function schedule() {
@@ -71,16 +75,33 @@ function JournalEditor({ date, entry }: { date: string; entry: Entry | undefined
   useEffect(() => () => void flush(), []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const isToday = date === toISODate()
+  const canAsk = questionsFor(date, text, t, set?.questions).length > 0
   return (
     <div className="panel journal-card">
-      <MoodPicker
-        mood={mood}
-        onChange={(next) => {
-          setMood(next)
-          moodRef.current = next
-          schedule()
-        }}
-      />
+      <div className="journal-head">
+        <MoodPicker
+          mood={mood}
+          onChange={(next) => {
+            setMood(next)
+            moodRef.current = next
+            schedule()
+          }}
+        />
+        {canAsk && (
+          <button
+            type="button"
+            className="btn btn-quiet"
+            onClick={() => {
+              clearTimeout(timer.current)
+              void flush()
+              onAsk({ body: bodyRef.current, mood: moodRef.current })
+            }}
+          >
+            <MessageCircleQuestionMark aria-hidden size={18} />
+            {t('ask.start')}
+          </button>
+        )}
+      </div>
       <MarkdownToolbar
         target={textRef}
         onChange={(next) => {
@@ -111,9 +132,48 @@ function JournalEditor({ date, entry }: { date: string; entry: Entry | undefined
   )
 }
 
+/** A day with nothing yet is asked about; a day with writing opens the editor. */
+function JournalCard({
+  date,
+  entry,
+  set,
+}: {
+  date: string
+  entry: Entry | undefined
+  set: QuestionSet | null
+}) {
+  const [asking, setAsking] = useState(isBlank(entry))
+  const [doc, setDoc] = useState<JournalDoc>({ body: entry?.body ?? '', mood: entry?.mood ?? null })
+  const [savedAt, setSavedAt] = useState(entry?.updatedAt ?? null)
+  return asking ? (
+    <Interview
+      date={date}
+      doc={doc}
+      set={set}
+      onFinish={(next) => {
+        setDoc(next)
+        setSavedAt(isBlank({ body: next.body, mood: next.mood ?? undefined }) ? null : Date.now())
+        setAsking(false)
+      }}
+    />
+  ) : (
+    <JournalEditor
+      date={date}
+      doc={doc}
+      savedAt={savedAt}
+      set={set}
+      onAsk={(next) => {
+        setDoc(next)
+        setAsking(true)
+      }}
+    />
+  )
+}
+
 export function Today({ date }: { date: string }) {
   const { t } = useI18n()
   const journal = useLiveQuery(async () => ({ d: date, e: await repo.journalFor(date) }), [date])
+  const set = useLiveQuery(() => setsStore.active(), [])
   const tasks = useLiveQuery(() => repo.list('task'), []) ?? []
   const lists = useLiveQuery(() => repo.list('checklist'), []) ?? []
   const today = toISODate()
@@ -133,8 +193,8 @@ export function Today({ date }: { date: string }) {
           <h2 id="h-journal">{t('today.journal')}</h2>
           <a href={href({ name: 'journal' })}>{t('today.allJournals')}</a>
         </div>
-        {journal && journal.d === date ? (
-          <JournalEditor key={date} date={date} entry={journal.e} />
+        {journal && journal.d === date && set !== undefined ? (
+          <JournalCard key={date} date={date} entry={journal.e} set={set} />
         ) : (
           <div className="panel journal-card" style={{ minHeight: 160 }} />
         )}

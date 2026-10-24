@@ -15,6 +15,7 @@ import {
 } from './exportImport'
 import { BackupFormatError, makeBackup, parseBackupText } from './format'
 import { filesToDelete } from './targets/folderTarget'
+import { createSetsStore } from '../journal/sets'
 
 let n = 0
 const fresh = () => {
@@ -104,8 +105,25 @@ describe('export / import', () => {
     expect(md).toContain('title: "Shop"')
   })
 
-  it('keeps the mood through a backup round trip and in Markdown front matter', async () => {
+  it('carries the user’s own question sets and keeps them when a file has none', async () => {
     const a = fresh()
+    const sets = createSetsStore(a.database)
+    const set = await sets.save({ name: 'Evening review', questions: ['Who helped me?', 'What tired me?'] })
+    await sets.setActive(set.id)
+
+    const text = await backupFileText(undefined, a.database)
+    const b = fresh()
+    await importBackup((await readBackupFile(text, async () => null))!, 'merge', b.database)
+    const restored = createSetsStore(b.database)
+    expect((await restored.list()).map((s) => s.name)).toEqual(['Evening review'])
+    expect(await restored.activeId()).toBe(set.id)
+
+    // An old backup (no question sets) must not throw the local sets away.
+    await importBackup(makeBackup([]), 'replace', b.database)
+    expect((await restored.list()).map((s) => s.name)).toEqual(['Evening review'])
+  })
+
+  it('keeps the mood through a backup round trip and in Markdown front matter', async () => {    const a = fresh()
     const j = await a.repo.ensureJournal('2026-10-12')
     await a.repo.update(j.id, { body: 'Rain.', mood: 2 })
 

@@ -1,6 +1,7 @@
 import { strToU8, zipSync } from 'fflate'
 import { db as defaultDb, type JournaDB } from '../db/db'
 import type { Entry, Mood } from '../db/types'
+import { createSetsStore } from '../journal/sets'
 import { decryptText, encryptText } from './crypto'
 import { backupSchema, BackupFormatError, makeBackup, parseBackupText, type Backup } from './format'
 
@@ -8,7 +9,11 @@ import { backupSchema, BackupFormatError, makeBackup, parseBackupText, type Back
 const MOOD_WORDS: Record<Mood, string> = { 1: 'rough', 2: 'low', 3: 'okay', 4: 'good', 5: 'great' }
 
 export async function exportBackup(database: JournaDB = defaultDb): Promise<Backup> {
-  return makeBackup(await database.entries.toArray())
+  const store = createSetsStore(database)
+  return makeBackup(await database.entries.toArray(), Date.now(), {
+    questionSets: await store.list(),
+    activeQuestionSet: await store.activeId(),
+  })
 }
 
 /** Serialized backup file contents, optionally encrypted with a passphrase. */
@@ -43,6 +48,8 @@ export interface ImportResult {
 /**
  * merge: entries are matched by id and the newer updatedAt wins.
  * replace: all local entries are removed first.
+ * Question sets travel too: a backup without any leaves the local ones untouched,
+ * so restoring an old backup never throws away sets written since.
  */
 export async function importBackup(
   backup: Backup,
@@ -50,28 +57,33 @@ export async function importBackup(
   database: JournaDB = defaultDb,
 ): Promise<ImportResult> {
   const result: ImportResult = { added: 0, updated: 0, skipped: 0 }
-  await database.transaction('rw', database.entries, async () => {
+  const sets = createSetsStore(database)
+  await database.transaction('rw', database.entries, database.settings, async () => {
     if (mode === 'replace') {
       await database.entries.clear()
       await database.entries.bulkAdd(backup.entries)
       result.added = backup.entries.length
-      return
+    } else {
+      const existing = await database.entries.bulkGet(backup.entries.map((e) => e.id))
+      const toPut: Entry[] = []
+      backup.entries.forEach((incoming, i) => {
+        const local = existing[i]
+        if (!local) {
+          result.added++
+          toPut.push(incoming)
+        } else if (incoming.updatedAt > local.updatedAt) {
+          result.updated++
+          toPut.push(incoming)
+        } else {
+          result.skipped++
+        }
+      })
+      await database.entries.bulkPut(toPut)
     }
-    const existing = await database.entries.bulkGet(backup.entries.map((e) => e.id))
-    const toPut: Entry[] = []
-    backup.entries.forEach((incoming, i) => {
-      const local = existing[i]
-      if (!local) {
-        result.added++
-        toPut.push(incoming)
-      } else if (incoming.updatedAt > local.updatedAt) {
-        result.updated++
-        toPut.push(incoming)
-      } else {
-        result.skipped++
-      }
-    })
-    await database.entries.bulkPut(toPut)
+    if (backup.questionSets) {
+      if (mode === 'replace') await sets.replaceAll(backup.questionSets, backup.activeQuestionSet)
+      else await sets.merge(backup.questionSets, backup.activeQuestionSet)
+    }
   })
   return result
 }

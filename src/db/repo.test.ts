@@ -24,6 +24,20 @@ describe('repo', () => {
     expect(task.deletedAt).toBe(0)
   })
 
+  it('saves a journal day only when there is something to keep, and clears the mood', async () => {
+    expect(await ctx.repo.saveJournal('2026-10-24', '  ', null)).toBe(false)
+    expect(await ctx.repo.journalFor('2026-10-24')).toBeUndefined()
+
+    expect(await ctx.repo.saveJournal('2026-10-24', '', 4)).toBe(true)
+    expect((await ctx.repo.journalFor('2026-10-24'))?.mood).toBe(4)
+
+    expect(await ctx.repo.saveJournal('2026-10-24', '## Q\n\nA', null)).toBe(true)
+    const day = await ctx.repo.journalFor('2026-10-24')
+    expect(day?.body).toBe('## Q\n\nA')
+    expect(day?.mood).toBeUndefined()
+    expect(await ctx.database.outbox.get('journal-2026-10-24')).toBeDefined()
+  })
+
   it('lists by type with pinned first, newest next', async () => {
     const a = await ctx.repo.create({ type: 'note', title: 'a' })
     await ctx.repo.create({ type: 'note', title: 'b' })

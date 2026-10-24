@@ -19,6 +19,7 @@ import { useBackupState } from '../components/BackupChip'
 import { Segmented } from '../components/Segmented'
 import { LOCALES, useI18n, type Locale } from '../i18n'
 import { storageInfo } from '../pwa/persistStorage'
+import { DEFAULT_SET_ID, parseQuestions, setsStore, type QuestionSet } from '../journal/sets'
 import {
   approveDevice,
   deleteAccount,
@@ -772,6 +773,140 @@ function StoragePanel() {
   )
 }
 
+function QuestionsPanel() {
+  const { t } = useI18n()
+  const data = useLiveQuery(async () => ({ sets: await setsStore.list(), activeId: await setsStore.activeId() }), [])
+  const [editing, setEditing] = useState<{ id?: string; name: string; questions: string } | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  if (!data) return null
+  const { sets, activeId } = data
+
+  function start(set?: QuestionSet) {
+    setConfirmDelete(false)
+    setEditing(
+      set
+        ? { id: set.id, name: set.name, questions: set.questions.join('\n') }
+        : { name: '', questions: '' },
+    )
+  }
+
+  const questions = editing ? parseQuestions(editing.questions) : []
+  const valid = Boolean(editing && editing.name.trim() && questions.length)
+
+  async function save() {
+    if (!editing || !valid) return
+    await setsStore.save({ id: editing.id, name: editing.name, questions })
+    setEditing(null)
+  }
+
+  async function remove(id: string) {
+    if (!confirmDelete) return setConfirmDelete(true)
+    await setsStore.remove(id)
+    setEditing(null)
+  }
+
+  return (
+    <section className="panel" aria-labelledby="h-questions">
+      <h2 id="h-questions">{t('questions.title')}</h2>
+      <div className="field">
+        <label htmlFor="ask-set">{t('questions.askFrom')}</label>
+        <select id="ask-set" className="input" value={activeId} onChange={(e) => void setsStore.setActive(e.target.value)}>
+          <option value={DEFAULT_SET_ID}>{t('questions.builtin')}</option>
+          {sets.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.name}
+            </option>
+          ))}
+        </select>
+        <span className="hint">{t('questions.hint')}</span>
+      </div>
+
+      {sets.length > 0 && (
+        <ul className="rows">
+          {sets.map((s) => (
+            <li key={s.id} className="row">
+              <div className="row-main">
+                <span className="row-title">{s.name}</span>
+                <span className="row-meta">{t('questions.count', { count: s.questions.length })}</span>
+              </div>
+              <Button size="lg" variant="outline" onClick={() => start(s)}>
+                {t('questions.edit')}
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <div className="btn-row">
+        <Button size="lg" variant="outline" onClick={() => start()}>
+          {t('questions.new')}
+        </Button>
+      </div>
+
+      <Dialog open={editing !== null} onOpenChange={(open) => !open && setEditing(null)}>
+        <DialogPopup showCloseButton={false}>
+          <form
+            className="flex min-h-0 flex-col"
+            onSubmit={(e) => {
+              e.preventDefault()
+              void save()
+            }}
+          >
+            <DialogHeader>
+              <DialogTitle>{editing?.id ? t('questions.editTitle') : t('questions.new')}</DialogTitle>
+            </DialogHeader>
+            <DialogPanel className="grid gap-3">
+              <div className="field">
+                <label htmlFor="set-name">{t('questions.name')}</label>
+                <Input
+                  id="set-name"
+                  size="lg"
+                  autoFocus
+                  value={editing?.name ?? ''}
+                  placeholder={t('questions.namePlaceholder')}
+                  onChange={(e) => setEditing((x) => (x ? { ...x, name: e.target.value } : x))}
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="set-questions">{t('questions.questions')}</label>
+                <textarea
+                  id="set-questions"
+                  className="input set-questions"
+                  rows={6}
+                  value={editing?.questions ?? ''}
+                  aria-describedby="set-questions-hint"
+                  onChange={(e) => setEditing((x) => (x ? { ...x, questions: e.target.value } : x))}
+                />
+                <span className="hint" id="set-questions-hint">
+                  {t('questions.questionsHint')}
+                </span>
+              </div>
+            </DialogPanel>
+            <DialogFooter>
+              {editing?.id && (
+                <Button
+                  size="lg"
+                  className="me-auto"
+                  variant={confirmDelete ? 'destructive' : 'ghost'}
+                  onClick={() => void remove(editing.id!)}
+                >
+                  {confirmDelete ? t('questions.deleteConfirm') : t('questions.delete')}
+                </Button>
+              )}
+              <Button size="lg" variant="ghost" onClick={() => setEditing(null)}>
+                {t('common.cancel')}
+              </Button>
+              <Button size="lg" type="submit" disabled={!valid}>
+                {t('common.save')}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogPopup>
+      </Dialog>
+    </section>
+  )
+}
+
 export function Settings() {
   const { t, locale, setLocale } = useI18n()
   const [theme, setTheme] = useTheme()
@@ -784,6 +919,7 @@ export function Settings() {
       <BackupPanel />
       <DataPanel />
       <StoragePanel />
+      <QuestionsPanel />
       <section className="panel" aria-labelledby="h-look">
         <h2 id="h-look">{t('settings.theme')}</h2>
         <div className="field">

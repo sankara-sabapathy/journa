@@ -1,6 +1,6 @@
 import { db, type JournaDB } from './db'
 import { toISODate } from './date'
-import type { ChecklistItem, Entry, EntryType } from './types'
+import type { ChecklistItem, Entry, EntryType, Mood } from './types'
 
 export type NewEntry = Partial<Omit<Entry, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>> & {
   type: EntryType
@@ -120,6 +120,19 @@ export function createRepo(database: JournaDB = db) {
         changed()
         return entry
       })
+    },
+
+    /**
+     * Saves a day's journal text and mood. Creates the entry only when there is something to keep;
+     * a null mood clears the face. Returns whether anything was written.
+     */
+    async saveJournal(date: string, body: string, mood: Mood | null): Promise<boolean> {
+      const existing = await this.journalFor(date)
+      if (!existing && !body.trim() && mood === null) return false
+      const entry = existing ?? (await this.ensureJournal(date))
+      // `mood: undefined` removes the field.
+      await this.update(entry.id, { body, mood: mood ?? undefined })
+      return true
     },
 
     /** Days the user showed up: journal text, a mood check-in, or both. */
