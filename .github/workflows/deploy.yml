@@ -22,15 +22,34 @@ env:
   AWS_ACCOUNT_ID: '612850243659'
 
 jobs:
-  deploy:
+  # Picks the runner for the job below: GitHub-hosted while the account has
+  # Actions minutes left, otherwise the self-hosted runner in vars.CI_RUNNER
+  # (see nalamdesk's pages-ci.yml for the same pattern). Out of minutes this
+  # job fails within seconds without running; continue-on-error keeps that
+  # from failing the run.
+  runner:
+    name: GitHub-hosted minutes
     runs-on: ubuntu-latest
+    continue-on-error: true
+    timeout-minutes: 2
+    outputs:
+      hosted: ${{ steps.probe.outputs.hosted }}
+    steps:
+      - id: probe
+        run: echo "hosted=true" >> "$GITHUB_OUTPUT"
+
+  deploy:
+    needs: runner
+    if: ${{ !cancelled() }}
+    runs-on: ${{ needs.runner.outputs.hosted == 'true' && 'ubuntu-latest' || vars.CI_RUNNER && fromJSON(vars.CI_RUNNER) || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-          cache: npm
+          # Self-hosted runners keep ~/.npm, so skip the GitHub cache there.
+          cache: ${{ needs.runner.outputs.hosted == 'true' && 'npm' || '' }}
 
       - uses: aws-actions/configure-aws-credentials@v4
         with:
