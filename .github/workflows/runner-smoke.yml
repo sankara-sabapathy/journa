@@ -1,13 +1,22 @@
 name: Runner smoke
 
-# Temporary: reproduces the deploy.yml runner-selection pattern with trivial
-# steps so the handoff can be debugged without touching AWS.
+# Temporary: checks that vars.CI_RUNNER resolves and that the probe handoff
+# works, without touching AWS.
 on:
   push:
     paths: ['.github/workflows/runner-smoke.yml']
   workflow_dispatch:
 
 jobs:
+  vars:
+    runs-on: ["self-hosted", "journa-laptop"]
+    steps:
+      - name: Show vars
+        run: |
+          echo "CI_RUNNER=[${{ vars.CI_RUNNER }}]"
+          echo "RAW=$CI_RUNNER"
+          env | grep -i '^CI_RUNNER' || echo "not in env"
+
   probe:
     name: GitHub-hosted minutes
     runs-on: ubuntu-latest
@@ -25,8 +34,6 @@ jobs:
     runs-on: ${{ needs.probe.outputs.hosted == 'true' && 'ubuntu-latest' || vars.CI_RUNNER && fromJSON(vars.CI_RUNNER) || 'ubuntu-latest' }}
     steps:
       - run: |
-          echo "hosted=${{ needs.probe.outputs.hosted }}"
+          echo "hosted=[${{ needs.probe.outputs.hosted }}]"
           echo "runner=$RUNNER_NAME os=$RUNNER_OS"
           command -v aws && aws --version || echo "aws missing"
-          command -v node || echo "node missing (setup-node provides it)"
-          command -v zip && zip --version | head -2 || echo "zip missing"
