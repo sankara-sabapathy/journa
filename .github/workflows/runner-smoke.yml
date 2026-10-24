@@ -1,0 +1,22 @@
+name: Runner smoke
+
+# Temporary: proves the self-hosted runner picks up journa jobs and has the
+# tools the deploy needs. Delete once the deploy pipeline is confirmed.
+on:
+  push:
+    paths: ['.github/workflows/runner-smoke.yml']
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: ["self-hosted", "journa-laptop"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: What is here
+        run: |
+          echo "runner=$RUNNER_NAME os=$RUNNER_OS"
+          node -v || echo "node missing"
+          npm -v || echo "npm missing"
+          aws --version || echo "aws missing"
+          zip --version | head -2 || echo "zip missing"
+          git --version
