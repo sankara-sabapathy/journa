@@ -31,15 +31,15 @@ jobs:
     # account is out of minutes the hosted job never starts, and GitHub drops
     # every job that needs it, even with always(). Keeping the choice in a
     # variable makes the run deterministic either way.
-    runs-on: ${{ fromJSON(vars.CI_RUNNER || '["ubuntu-latest"]') }}
+    runs-on: ["self-hosted", "journa-laptop"]
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-          # Self-hosted runners keep ~/.npm, so skip the GitHub cache there.
-          cache: ${{ vars.CI_RUNNER == '' && 'npm' || '' }}
+          # Self-hosted runners keep ~/.npm, so no GitHub cache here.
+          cache: ''
 
       - uses: aws-actions/configure-aws-credentials@v4
         with:
