@@ -153,6 +153,36 @@ export async function respondToChallenge(
   return { kind: 'challenge', name, session: String(result.Session ?? session) }
 }
 
+/**
+ * The ChallengeResponses field Cognito expects for a one-time code. Each
+ * challenge names it differently, and sending the wrong key is rejected as an
+ * invalid parameter, so the answer is built here rather than at the call site.
+ */
+export function codeFieldFor(challengeName: string): string | null {
+  switch (challengeName) {
+    case 'EMAIL_OTP':
+      return 'EMAIL_OTP_CODE'
+    case 'SMS_OTP':
+      return 'SMS_OTP_CODE'
+    case 'SMS_MFA':
+      return 'SMS_MFA_CODE'
+    default:
+      return null
+  }
+}
+
+/** Answers a challenge that asks the user for a one-time code. */
+export async function answerWithCode(
+  challengeName: string,
+  session: string,
+  email: string,
+  code: string,
+): Promise<AuthOutcome> {
+  const field = codeFieldFor(challengeName)
+  if (!field) throw new AppError('error.authUnavailable')
+  return respondToChallenge(challengeName, session, { USERNAME: email, [field]: code })
+}
+
 export async function refreshCredentials(refreshToken: string): Promise<CloudCredentials> {
   const result = await invokeCognito('InitiateAuth', {
     AuthFlow: 'REFRESH_TOKEN_AUTH',

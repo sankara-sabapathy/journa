@@ -172,7 +172,7 @@ export async function verifyCode(code: string) {
     return
   }
 
-  const outcome = await auth.respondToChallenge('EMAIL_OTP', session, { USERNAME: email, ANSWER: code })
+  const outcome = await auth.answerWithCode('EMAIL_OTP', session, email, code)
   if (outcome.kind === 'challenge') {
     update({ status: 'awaiting-code', email, session: outcome.session, purpose: 'sign-in' })
     return
