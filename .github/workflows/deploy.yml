@@ -23,14 +23,18 @@ env:
 
 jobs:
   deploy:
-    # The runner is chosen by the CI_RUNNER repo variable: set it to a JSON
-    # runs-on value (e.g. ["self-hosted","journa-laptop"]) while GitHub-hosted
-    # minutes are exhausted, and delete it to go back to ubuntu-latest.
+    # Runs on the self-hosted runner from the nalamdesk setup (same machine,
+    # labels self-hosted/Linux/X64/journa-laptop) because GitHub-hosted
+    # minutes are exhausted on this account.
     #
-    # A probe job that tests hosted availability cannot work here: when the
-    # account is out of minutes the hosted job never starts, and GitHub drops
-    # every job that needs it, even with always(). Keeping the choice in a
-    # variable makes the run deterministic either way.
+    # Two things do not work here, both verified: a probe job that gates the
+    # deploy (when the account is out of minutes the hosted job never starts
+    # and GitHub drops every job that needs it, even with always()), and a
+    # runs-on expression that tests vars.CI_RUNNER first (the workflow fails
+    # validation). Hence the literal labels.
+    #
+    # To move back to GitHub-hosted, change this line to: runs-on: ubuntu-latest
+    # and set the setup-node cache below back to: cache: npm
     runs-on: ["self-hosted", "journa-laptop"]
     steps:
       - uses: actions/checkout@v4
