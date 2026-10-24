@@ -30,7 +30,7 @@ jobs:
 
   after:
     needs: probe
-    if: ${{ !cancelled() }}
+    if: ${{ always() }}
     runs-on: ${{ needs.probe.outputs.hosted == 'true' && 'ubuntu-latest' || vars.CI_RUNNER && fromJSON(vars.CI_RUNNER) || 'ubuntu-latest' }}
     steps:
       - run: |
