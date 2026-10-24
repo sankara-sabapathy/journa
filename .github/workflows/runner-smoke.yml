@@ -1,22 +1,32 @@
 name: Runner smoke
 
-# Temporary: proves the self-hosted runner picks up journa jobs and has the
-# tools the deploy needs. Delete once the deploy pipeline is confirmed.
+# Temporary: reproduces the deploy.yml runner-selection pattern with trivial
+# steps so the handoff can be debugged without touching AWS.
 on:
   push:
     paths: ['.github/workflows/runner-smoke.yml']
   workflow_dispatch:
 
 jobs:
-  smoke:
-    runs-on: ["self-hosted", "journa-laptop"]
+  probe:
+    name: GitHub-hosted minutes
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    timeout-minutes: 2
+    outputs:
+      hosted: ${{ steps.p.outputs.hosted }}
     steps:
-      - uses: actions/checkout@v4
-      - name: What is here
-        run: |
+      - id: p
+        run: echo "hosted=true" >> "$GITHUB_OUTPUT"
+
+  after:
+    needs: probe
+    if: ${{ !cancelled() }}
+    runs-on: ${{ needs.probe.outputs.hosted == 'true' && 'ubuntu-latest' || vars.CI_RUNNER && fromJSON(vars.CI_RUNNER) || 'ubuntu-latest' }}
+    steps:
+      - run: |
+          echo "hosted=${{ needs.probe.outputs.hosted }}"
           echo "runner=$RUNNER_NAME os=$RUNNER_OS"
-          node -v || echo "node missing"
-          npm -v || echo "npm missing"
-          aws --version || echo "aws missing"
-          zip --version | head -2 || echo "zip missing"
-          git --version
+          command -v aws && aws --version || echo "aws missing"
+          command -v node || echo "node missing (setup-node provides it)"
+          command -v zip && zip --version | head -2 || echo "zip missing"
