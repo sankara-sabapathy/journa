@@ -88,8 +88,8 @@ function Editor({ initial }: { initial: Entry }) {
   const [items, setItems] = useState<ChecklistItem[]>(initial.items ?? [])
   const [mood, setMood] = useState<Mood | null>(initial.mood ?? null)
   const [mode, setMode] = useState<'edit' | 'split' | 'preview'>('edit')
-  // New entries — and journals, which are written daily, not read — open ready to type.
-  const [editing, setEditing] = useState(initial.type === 'journal' || (!initial.title && !initial.body && !(initial.items?.length)))
+  // Blank entries open ready to type; journals with content open in reading mode.
+  const [editing, setEditing] = useState(!initial.title && !initial.body && !(initial.items?.length))
   const [newItem, setNewItem] = useState('')
   const titleRef = useRef<HTMLInputElement>(null)
   const bodyRef = useRef<HTMLTextAreaElement>(null)

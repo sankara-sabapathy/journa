@@ -489,7 +489,7 @@ dialog [data-slot='button'],
     white-space: nowrap;
     font-size: 0.75rem;
     font-weight: 500;
-    color: var(--rice);
+    color: var(--surface);
     background: var(--ink);
     border-radius: var(--r-sm);
     padding: 4px 8px;
