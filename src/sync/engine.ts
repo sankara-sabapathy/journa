@@ -4,7 +4,7 @@ import { db } from '../db/db'
 import { newId, onChange } from '../db/repo'
 import type { Entry } from '../db/types'
 import { openEntry, sealEntry } from './deviceKeys'
-import { resolveDataKey } from './devices'
+import { enrollDevice } from './devices'
 import { detectSyncConflicts, selectWinningEntries } from './merge'
 import { syncRequestSchema, syncResponseSchema, type AccountState, type SyncConflict, type SyncItem, type UserId } from './types'
 import * as auth from './auth'
@@ -226,7 +226,16 @@ export async function syncNow(): Promise<boolean> {
 
   try {
     const freshCredentials = await refreshIfNeeded(credentials)
-    let dek: Uint8Array<ArrayBuffer> | null = await resolveDataKey('Journa device')
+    let dek: Uint8Array<ArrayBuffer> | null = null
+    const enrolled = await enrollDevice('Journa device')
+    if (enrolled.status === 'ready') {
+      dek = enrolled.dek
+    } else if (enrolled.status === 'waiting') {
+      update({ status: 'error', userId, email, lastSyncAt, error: 'error.approvalPending' })
+      return false
+    } else {
+      dek = enrolled.dek
+    }
     if (!dek) {
       update({ status: 'error', userId, email, lastSyncAt, error: 'error.deviceNotEnrolled' })
       return false
@@ -285,7 +294,16 @@ export async function syncNow(): Promise<boolean> {
     update({ status: 'idle', userId, email, lastSyncAt: nextLastSyncAt, dirtyCount })
     return true
   } catch (error) {
-    update({ status: 'error', userId, email, lastSyncAt, error: toErrorCode(error) })
+    const code = toErrorCode(error)
+    // The waiting device polls for its key: an approval that lands between
+    // retries must clear this state instead of sticking as a sync failure.
+    if (code === 'error.deviceNotEnrolled' || code === 'error.approvalPending') {
+      const retry = await enrollDevice('Journa device')
+      if (retry.status !== 'waiting') {
+        return syncNow()
+      }
+    }
+    update({ status: 'error', userId, email, lastSyncAt, error: code })
     return false
   }
 }

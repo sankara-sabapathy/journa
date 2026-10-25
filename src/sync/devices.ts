@@ -5,6 +5,7 @@ import {
   wrapDataKey,
   type WrappedDataKey,
 } from './deviceKeys'
+import { AppError } from '../app/errors'
 import { getAccessToken } from './engine'
 
 const IDENTITY_KEY = 'device.identity'
@@ -84,28 +85,6 @@ export async function ensureDeviceIdentity(): Promise<DeviceIdentity> {
   return identity
 }
 
-async function readDek(): Promise<Uint8Array<ArrayBuffer> | null> {
-  const { db } = await import('../db/db')
-  const row = await db.settings.get(DEK_KEY)
-  const stored = (row?.value ?? null) as StoredDek | null
-  return stored ? fromB64Url(stored.rawB64) : null
-}
-
-async function writeDek(raw: Uint8Array<ArrayBuffer>): Promise<void> {
-  const { db } = await import('../db/db')
-  await db.settings.put({ key: DEK_KEY, value: { rawB64: toB64Url(raw) } satisfies StoredDek })
-}
-
-export async function registerDevice(label: string): Promise<DeviceIdentity> {
-  const identity = await ensureDeviceIdentity()
-  await call(`/v1/devices/${encodeURIComponent(identity.deviceId)}`, {
-    method: 'PUT',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ publicKeyJwk: identity.publicJwk, label }),
-  })
-  return identity
-}
-
 export async function listDevices(): Promise<DeviceRecord[]> {
   const response = await call('/v1/devices', { method: 'GET' })
   const json = (await response.json()) as { devices?: DeviceRecord[] }
@@ -122,22 +101,59 @@ async function fetchWrap(deviceId: string): Promise<WrappedDataKey | null> {
   return json.wrap ? (JSON.parse(json.wrap) as WrappedDataKey) : null
 }
 
-export async function ensureEnrolled(label: string): Promise<Uint8Array<ArrayBuffer> | null> {
-  const identity = await registerDevice(label)
-  const local = await readDek()
-  if (local) return local
-  const wrap = await fetchWrap(identity.deviceId)
+async function readDek(): Promise<Uint8Array<ArrayBuffer> | null> {
+  const { db } = await import('../db/db')
+  const row = await db.settings.get(DEK_KEY)
+  const stored = (row?.value ?? null) as StoredDek | null
+  return stored ? fromB64Url(stored.rawB64) : null
+}
+
+async function writeDek(raw: Uint8Array<ArrayBuffer>): Promise<void> {
+  const { db } = await import('../db/db')
+  await db.settings.put({ key: DEK_KEY, value: { rawB64: toB64Url(raw) } satisfies StoredDek })
+}
+
+/** One enrollment result for every outcome, so the panel and sync agree. */
+export type EnrollmentResult =
+  | { status: 'ready'; dek: Uint8Array<ArrayBuffer> }
+  | { status: 'waiting' }
+  | { status: 'first'; dek: Uint8Array<ArrayBuffer>; recoveryKey: string }
+
+export const APPROVAL_POLL_MS = 15_000
+
+async function registerIfMissing(label: string): Promise<DeviceIdentity> {
+  const identity = await ensureDeviceIdentity()
+  await call(`/v1/devices/${encodeURIComponent(identity.deviceId)}`, {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ publicKeyJwk: identity.publicJwk, label }),
+  })
+  return identity
+}
+
+async function unwrapStoredWrap(deviceId: string): Promise<Uint8Array<ArrayBuffer> | null> {
+  const identity = await ensureDeviceIdentity()
+  const wrap = await fetchWrap(deviceId)
   if (!wrap) return null
+  // The wrap names its recipient; never unwrap a wrap minted for another device.
+  if (wrap.recipientId !== identity.deviceId) throw new AppError('error.unknownDevice')
   const privateKey = await importPrivateKey(identity.privateJwk)
   const dek = await unwrapDataKey(wrap, privateKey)
   await writeDek(dek)
   return dek
 }
 
+export async function ensureEnrolled(label: string): Promise<Uint8Array<ArrayBuffer> | null> {
+  const identity = await registerIfMissing(label)
+  const local = await readDek()
+  if (local) return local
+  return unwrapStoredWrap(identity.deviceId)
+}
+
 export async function approveDevice(deviceId: string, dek: Uint8Array<ArrayBuffer>): Promise<void> {
   const devices = await listDevices()
   const target = devices.find((d) => d.deviceId === deviceId)
-  if (!target?.publicKeyJwk) throw new Error('unknown-device')
+  if (!target?.publicKeyJwk) throw new AppError('error.unknownDevice')
   const wrap = await wrapDataKey(dek, target.publicKeyJwk)
   await call(`/v1/devices/${encodeURIComponent(deviceId)}/dek`, {
     method: 'PUT',
@@ -154,7 +170,8 @@ export async function deleteAccount(): Promise<void> {
   await call('/v1/account', { method: 'DELETE' })
 }
 
-export async function mintFirstDeviceKey(): Promise<Uint8Array<ArrayBuffer>> {  const identity = await ensureDeviceIdentity()
+async function mintFirstDeviceKey(): Promise<{ dek: Uint8Array<ArrayBuffer>; recoveryKey: string }> {
+  const identity = await ensureDeviceIdentity()
   const dek = await randomDataKey()
   await writeDek(dek)
   const wrap = await wrapDataKey(dek, identity.publicJwk)
@@ -163,7 +180,37 @@ export async function mintFirstDeviceKey(): Promise<Uint8Array<ArrayBuffer>> {  
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ wrap: JSON.stringify(wrap) }),
   })
-  return dek
+  return { dek, recoveryKey: toB64Url(dek) }
+}
+
+/**
+ * One place decides what "can sync" means. Every outcome is explicit: the
+ * device has a key, it is waiting on a trusted device, or it just minted the
+ * account's first key and must back up the recovery key.
+ */
+export async function enrollDevice(label: string): Promise<EnrollmentResult> {
+  const dek = await ensureEnrolled(label)
+  if (dek) return { status: 'ready', dek }
+  const identity = await ensureDeviceIdentity()
+  const peers = (await listDevices()).filter((d) => d.deviceId !== identity.deviceId)
+  if (peers.length === 0) {
+    const first = await mintFirstDeviceKey()
+    return { status: 'first', ...first }
+  }
+  return { status: 'waiting' }
+}
+
+const RECOVERY_ACK_KEY = 'device.recoveryAck'
+
+export async function hasAcknowledgedRecovery(): Promise<boolean> {
+  const { db } = await import('../db/db')
+  const row = await db.settings.get(RECOVERY_ACK_KEY)
+  return row?.value === true
+}
+
+export async function acknowledgeRecovery(): Promise<void> {
+  const { db } = await import('../db/db')
+  await db.settings.put({ key: RECOVERY_ACK_KEY, value: true })
 }
 
 export async function exportRecoveryKey(): Promise<string | null> {
@@ -173,7 +220,7 @@ export async function exportRecoveryKey(): Promise<string | null> {
 
 export async function importRecoveryKey(key: string): Promise<Uint8Array<ArrayBuffer>> {
   const dek = fromB64Url(key.trim())
-  if (dek.length !== 32) throw new Error('invalid-recovery-key')
+  if (dek.length !== 32) throw new AppError('error.invalidRecoveryKey')
   await writeDek(dek)
   return dek
 }
@@ -182,11 +229,8 @@ export async function localDataKey(): Promise<Uint8Array<ArrayBuffer> | null> {
   return readDek()
 }
 
+/** Legacy helper kept for the engine: null also means "waiting". */
 export async function resolveDataKey(label: string): Promise<Uint8Array<ArrayBuffer> | null> {
-  const dek = await ensureEnrolled(label)
-  if (dek) return dek
-  const identity = await ensureDeviceIdentity()
-  const peers = (await listDevices()).filter((d) => d.deviceId !== identity.deviceId)
-  if (peers.length === 0) return mintFirstDeviceKey()
-  return null
+  const result = await enrollDevice(label)
+  return result.status === 'ready' ? result.dek : null
 }

@@ -1,12 +1,12 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { CircleAlert, CircleCheck, Download, FolderOpen, Trash2, Upload } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogDescription, DialogFooter, DialogHeader, DialogPanel, DialogPopup, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { href } from '../app/router'
 import { ACCENTS, useAccent } from '../app/accent'
-import { useErrorMessage } from '../app/errors'
+import { AppError, useErrorMessage } from '../app/errors'
 import { useTheme, type Theme } from '../app/theme'
 import { toast } from '../app/toasts'
 import { WrongPassphraseError } from '../backup/crypto'
@@ -24,12 +24,15 @@ import {
   approveDevice,
   deleteAccount,
   ensureDeviceIdentity,
+  enrollDevice,
   exportRecoveryKey,
   importRecoveryKey,
   listDevices,
   localDataKey,
-  resolveDataKey,
+  hasAcknowledgedRecovery,
+  acknowledgeRecovery,
   revokeDevice,
+  APPROVAL_POLL_MS,
   type DeviceRecord,
 } from '../sync/devices'
 import { syncEngine, useAccountState, useConflicts } from '../sync/engine'
@@ -360,24 +363,24 @@ function DevicesPanel() {
   const [recovery, setRecovery] = useState<string | null>(null)
   const [importKey, setImportKey] = useState('')
   const [busy, setBusy] = useState(false)
+  /** null: unknown yet; otherwise the enrollment outcome from the server. */
+  const [enrollment, setEnrollment] = useState<'ready' | 'waiting' | 'first' | null>(null)
+  const [recoveryAcked, setRecoveryAcked] = useState(true)
+  const [approvedFlash, setApprovedFlash] = useState(false)
   const signedIn = account.status === 'idle' || account.status === 'syncing' || account.status === 'error'
 
-  useEffect(() => {
-    if (!signedIn) return
-    void refresh()
-  }, [signedIn, account.status])
-
-  async function refresh() {
+  const refresh = useCallback(async () => {
     const identity = await ensureDeviceIdentity()
     setThisId(identity.deviceId)
     setDevices(await listDevices())
     setHasKey((await localDataKey()) !== null)
-  }
+  }, [])
 
   async function run(fn: () => Promise<unknown>) {
     setBusy(true)
     try {
       await fn()
+      await checkEnrollment()
       await refresh()
     } catch (err) {
       toast(describe(err))
@@ -386,9 +389,54 @@ function DevicesPanel() {
     }
   }
 
+  /** Ask the server if an approval landed, and pick up the key if so. */
+  const checkEnrollment = useCallback(async () => {
+    let transition: Awaited<ReturnType<typeof enrollDevice>> | null = null
+    try {
+      transition = await enrollDevice('Journa device')
+    } catch {
+      /* Offline or mid-sign-out: keep whatever the panel last knew. */
+      return
+    }
+    const result = transition
+    if (result.status === 'ready') {
+      setEnrollment((prev) => {
+        if (prev === 'waiting') {
+          setApprovedFlash(true)
+          void refresh()
+        }
+        return 'ready'
+      })
+      setHasKey(true)
+      setRecoveryAcked(await hasAcknowledgedRecovery())
+    } else if (result.status === 'first') {
+      setEnrollment('first')
+      setHasKey(true)
+      setRecovery(result.recoveryKey)
+      setRecoveryAcked(await hasAcknowledgedRecovery())
+    } else {
+      setEnrollment('waiting')
+      setHasKey(false)
+    }
+  }, [refresh])
+
+  // Check on mount and sign-in, then poll while waiting so the panel moves
+  // on by itself the moment the other device approves.
+  useEffect(() => {
+    if (!signedIn) return
+    void checkEnrollment()
+    void refresh()
+  }, [signedIn, account.status, checkEnrollment, refresh])
+
+  useEffect(() => {
+    if (!signedIn || enrollment !== 'waiting') return
+    const timer = setInterval(() => void checkEnrollment(), APPROVAL_POLL_MS)
+    return () => clearInterval(timer)
+  }, [signedIn, enrollment, checkEnrollment])
+
   async function approveListed(deviceId: string) {
     const dek = await localDataKey()
-    if (!dek) throw new Error('sync-device-not-enrolled')
+    if (!dek) throw new AppError('error.firstDeviceOnly')
     await approveDevice(deviceId, dek)
   }
 
@@ -398,6 +446,32 @@ function DevicesPanel() {
     <section className="panel" aria-labelledby="h-devices">
       <h2 id="h-devices">{t('devices.title')}</h2>
       <p className="muted">{t('devices.hint')}</p>
+      {approvedFlash && (
+        <p role="status" className="confirm">
+          {t('devices.approved')}
+        </p>
+      )}
+      {/* A first device holds the only copy of the key until it is saved elsewhere. */}
+      {enrollment === 'first' && recovery && !recoveryAcked && (
+        <>
+          <p className="warn">{t('devices.noRecoveryWarning')}</p>
+          <p className="recovery-key">{recovery}</p>
+          <div className="btn-row">
+            <Button
+              size="lg"
+              variant="outline"
+              onClick={() =>
+                void (async () => {
+                  await acknowledgeRecovery()
+                  setRecoveryAcked(true)
+                })()
+              }
+            >
+              {t('devices.recoverySaved')}
+            </Button>
+          </div>
+        </>
+      )}
       <ul className="device-list">
         {devices.map((d) => (
           <li key={d.deviceId} className="device-row">
@@ -417,14 +491,20 @@ function DevicesPanel() {
           </li>
         ))}
       </ul>
+      {enrollment === 'waiting' && (
+        <p className="muted" role="status">
+          {t('devices.waiting')}
+        </p>
+      )}
       {!hasKey && (
         <>
-          <div className="btn-row">
-            <Button size="lg" variant="outline" loading={busy} onClick={() => void run(() => resolveDataKey('Journa device'))}>
-              {t('devices.enable')}
-            </Button>
-          </div>
-          <p className="muted">{t('devices.waiting')}</p>
+          {enrollment === 'waiting' && (
+            <div className="btn-row">
+              <Button size="lg" variant="outline" loading={busy} onClick={() => void run(() => checkEnrollment())}>
+                {t('devices.enable')}
+              </Button>
+            </div>
+          )}
           <form
             className="field"
             onSubmit={(e) => {
@@ -448,7 +528,7 @@ function DevicesPanel() {
           </form>
         </>
       )}
-      {hasKey && (
+      {hasKey && enrollment !== 'first' && (
         <>
           <div className="btn-row">
             <Button

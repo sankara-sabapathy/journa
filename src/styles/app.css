@@ -1292,8 +1292,24 @@ select.input {
 .ok {
   color: var(--leaf);
 }
+/* Approval landed on this device: leaf, same voice as a done task. */
+.confirm {
+  color: var(--leaf);
+  font-weight: 600;
+  font-size: var(--t-sm);
+}
 .warn {
   color: var(--sindoor);
+}
+.recovery-key {
+  font-family: var(--font-mono);
+  font-size: var(--t-sm);
+  word-break: break-all;
+  padding: var(--s2) var(--s3);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  user-select: all;
 }
 .muted {
   color: var(--ink-2);
