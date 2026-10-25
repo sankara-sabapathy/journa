@@ -274,6 +274,8 @@ export const en = {
   'kolam.nextYear': 'Next year',
   'kolam.pick': 'Choose month and year',
   'kolam.year': 'Year',
+  'kolam.showCalendar': 'Show calendar',
+  'kolam.hideCalendar': 'Hide calendar',
   'pwa.installHint': 'Install Journa so it opens like an app and the browser keeps its data safe.',
   'app.skip': 'Skip to content',
   'nav.main': 'Main',

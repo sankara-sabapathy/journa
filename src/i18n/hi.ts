@@ -277,6 +277,8 @@ export const hi: Messages = {
   'kolam.nextYear': 'अगला साल',
   'kolam.pick': 'महीना और साल चुनें',
   'kolam.year': 'साल',
+  'kolam.showCalendar': 'कैलेंडर दिखाएँ',
+  'kolam.hideCalendar': 'कैलेंडर छुपाएँ',
   'pwa.installHint': 'Journa इंस्टॉल करें ताकि यह ऐप की तरह खुले और ब्राउज़र इसका डेटा सुरक्षित रखे।',
   'app.skip': 'सामग्री पर जाएँ',
   'nav.main': 'मुख्य',

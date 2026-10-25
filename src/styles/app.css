@@ -354,6 +354,24 @@ dialog [data-slot='button'],
   font-size: var(--t-sm);
   color: rgb(251 248 242 / 0.82);
 }
+.kolam-toggle {
+  display: none;
+}
+@media (max-width: 600px) {
+  .kolam-toggle {
+    display: inline-flex;
+    align-items: center;
+    min-height: 32px;
+    padding: 0 var(--s2);
+    border: 1px solid rgb(251 248 242 / 0.3);
+    border-radius: var(--r-sm);
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-size: var(--t-xs);
+    cursor: pointer;
+  }
+}
 .kolam-title-button {
   display: inline-flex;
   align-items: center;

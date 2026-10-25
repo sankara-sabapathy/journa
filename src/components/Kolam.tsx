@@ -48,6 +48,9 @@ interface Props {
 export function Kolam({ year, month, selected, onMonth, onYear, onPick }: Props) {
   const { t, fmt } = useI18n()
   const [picking, setPicking] = useState(false)
+  const [collapsed, setCollapsed] = useState(() =>
+    typeof window !== 'undefined' && window.matchMedia('(max-width: 600px)').matches,
+  )
   const cells = useMemo(() => monthGrid(year, month), [year, month])
   const from = cells[0].date
   const to = cells[cells.length - 1].date
@@ -130,7 +133,16 @@ export function Kolam({ year, month, selected, onMonth, onYear, onPick }: Props)
             </div>
           </div>
           <p className="kolam-count">{t('kolam.written', { count: written.size })}</p>
+          <button
+            type="button"
+            className="kolam-toggle"
+            aria-expanded={!collapsed}
+            onClick={() => setCollapsed((v) => !v)}
+          >
+            {collapsed ? t('kolam.showCalendar') : t('kolam.hideCalendar')}
+          </button>
         </div>
+        {!collapsed && (
         <div className="kolam-grid">
           <div className="kolam-weekdays" aria-hidden>
             {weekdays.map((w, i) => (
@@ -187,6 +199,7 @@ export function Kolam({ year, month, selected, onMonth, onYear, onPick }: Props)
             </div>
           </div>
         </div>
+        )}
         {picking && (
           <div className="kolam-picker" role="group" aria-label={t('kolam.pick')}>
             <div className="kolam-picker-year">

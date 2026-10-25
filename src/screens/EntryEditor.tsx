@@ -1,5 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { ArrowDown, ArrowLeft, ArrowUp, Pin, PinOff, Plus, Trash2, X } from 'lucide-react'
+import { ArrowDown, ArrowLeft, ArrowUp, PenLine, Pin, PinOff, Plus, Trash2, X } from 'lucide-react'
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { href, navigate } from '../app/router'
 import { toast } from '../app/toasts'
@@ -164,15 +164,14 @@ function Editor({ initial }: { initial: Entry }) {
           {savedAt ? t('entry.edited', { time: fmt.date(savedAt, { hour: 'numeric', minute: '2-digit' }) }) : ''}
         </span>
         <div className="btn-row">
-          {editing ? (
-            <Button size="lg" variant="outline" onClick={() => setEditing(false)}>
-              {t('entry.doneEditing')}
-            </Button>
-          ) : (
-            <Button size="lg" variant="outline" onClick={() => setEditing(true)}>
-              {t('entry.edit')}
-            </Button>
-          )}
+          <IconButton
+            label={editing ? t('entry.doneEditing') : t('entry.edit')}
+            variant="outline"
+            size="icon-lg"
+            onClick={() => setEditing((v) => !v)}
+          >
+            <PenLine aria-hidden />
+          </IconButton>
           <IconButton
             label={pinned ? t('entry.unpin') : t('entry.pin')}
             onClick={() => {
