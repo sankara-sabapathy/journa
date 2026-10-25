@@ -533,6 +533,28 @@ dialog [data-slot='button'],
   color: rgb(251 248 242 / 0.75);
   margin-bottom: var(--s1);
 }
+/* Compact calendar on phones: smaller grid, tighter header-to-grid gap. */
+@media (max-width: 600px) {
+  .kolam-band {
+    padding: var(--s2) var(--s3) var(--s3);
+  }
+  .kolam-inner {
+    gap: var(--s2) var(--s3);
+  }
+  .kolam-side {
+    flex-basis: 100%;
+  }
+  .kolam-head {
+    margin-bottom: 0;
+  }
+  .kolam-count {
+    margin: 0 0 var(--s1);
+  }
+  .kolam,
+  .kolam-weekdays {
+    max-width: 315px;
+  }
+}
 .kolam-line {
   fill: none;
   stroke: var(--rice);
