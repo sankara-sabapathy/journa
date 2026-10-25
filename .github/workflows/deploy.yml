@@ -23,27 +23,14 @@ env:
 
 jobs:
   deploy:
-    # Runs on the self-hosted runner from the nalamdesk setup (same machine,
-    # labels self-hosted/Linux/X64/journa-laptop) because GitHub-hosted
-    # minutes are exhausted on this account.
-    #
-    # Two things do not work here, both verified: a probe job that gates the
-    # deploy (when the account is out of minutes the hosted job never starts
-    # and GitHub drops every job that needs it, even with always()), and a
-    # runs-on expression that tests vars.CI_RUNNER first (the workflow fails
-    # validation). Hence the literal labels.
-    #
-    # To move back to GitHub-hosted, change this line to: runs-on: ubuntu-latest
-    # and set the setup-node cache below back to: cache: npm
-    runs-on: ["self-hosted", "journa-laptop"]
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-          # Self-hosted runners keep ~/.npm, so no GitHub cache here.
-          cache: ''
+          cache: npm
 
       - uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -110,4 +97,3 @@ jobs:
       - name: Invalidate CloudFront
         run: aws cloudfront create-invalidation --distribution-id "${{ steps.outputs.outputs.dist_id }}" --paths "/*"
 
-# trigger: redeploy the approval-loop fix after the runner dropped mid-run
