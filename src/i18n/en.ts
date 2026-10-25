@@ -139,6 +139,7 @@ export const en = {
   'backup.chip.pending': 'Backup pending',
   'backup.chip.attention': 'Backup needs attention',
   'backup.chip.off': 'Not backed up',
+  'backup.chip.cloud': 'Synced',
   'backup.choose': 'Choose backup folder',
   'backup.change': 'Change folder',
   'backup.allow': 'Allow access',

@@ -141,6 +141,7 @@ export const hi: Messages = {
   'backup.chip.pending': 'बैकअप बाकी',
   'backup.chip.attention': 'बैकअप पर ध्यान दें',
   'backup.chip.off': 'बैकअप नहीं',
+  'backup.chip.cloud': 'सिंक हुआ',
   'backup.choose': 'बैकअप फ़ोल्डर चुनें',
   'backup.change': 'फ़ोल्डर बदलें',
   'backup.allow': 'अनुमति दें',

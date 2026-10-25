@@ -557,7 +557,8 @@ dialog [data-slot='button'],
     padding: var(--s2) var(--s3) var(--s3);
   }
   .kolam-inner {
-    gap: var(--s2) var(--s3);
+    gap: 0 var(--s3);
+    flex-direction: column;
   }
   .kolam-side {
     flex-basis: 100%;
@@ -566,11 +567,12 @@ dialog [data-slot='button'],
     margin-bottom: 0;
   }
   .kolam-count {
-    margin: 0 0 var(--s1);
+    margin: 0 0 0;
   }
   .kolam,
   .kolam-weekdays {
     max-width: 315px;
+    margin-top: var(--s1);
   }
 }
 .kolam-line {

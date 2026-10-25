@@ -141,6 +141,7 @@ export const ta: Messages = {
   'backup.chip.pending': 'காப்பு நிலுவையில்',
   'backup.chip.attention': 'காப்புக்குக் கவனம் தேவை',
   'backup.chip.off': 'காப்பு இல்லை',
+  'backup.chip.cloud': 'ஒத்திசைக்கப்பட்டது',
   'backup.choose': 'காப்புக் கோப்புறையைத் தேர்ந்தெடு',
   'backup.change': 'கோப்புறையை மாற்று',
   'backup.allow': 'அனுமதி கொடு',
