@@ -239,11 +239,22 @@ dialog [data-slot='button'],
   text-align: center;
   overflow-wrap: anywhere;
   text-decoration: none;
+  outline: none;
+}
+.tab:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+  border-radius: var(--r-sm);
 }
 @media (max-width: 420px) {
   .tab {
     padding: 0;
     gap: 1px;
+  }
+}
+@media (max-width: 600px) {
+  .main {
+    padding-bottom: calc(var(--nav-h) + 80px + env(safe-area-inset-bottom));
   }
 }
 .tab[aria-current='page'] {
@@ -430,7 +441,12 @@ dialog [data-slot='button'],
   background: transparent;
   color: inherit;
   font: inherit;
+  font-size: var(--t-xs);
   cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding-inline: var(--s1);
 }
 .kolam-picker-month[aria-current='date'] {
   background: var(--turmeric);
