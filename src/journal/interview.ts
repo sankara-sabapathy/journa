@@ -1,4 +1,3 @@
-import { fromISODate } from '../db/date'
 import type { MessageKey } from '../i18n/en'
 
 export const QUESTIONS_PER_ROUND = 3
@@ -33,7 +32,8 @@ export function headingOf(question: Question, label: (key: MessageKey) => string
 }
 
 function dayNumber(date: string): number {
-  return Math.floor(fromISODate(date).getTime() / 86_400_000)
+  const [y, m, d] = date.split('-').map(Number)
+  return Math.floor(Date.UTC(y, m - 1, d) / 86_400_000)
 }
 
 /** The same day always gets the same questions, in the same order. */
@@ -46,8 +46,17 @@ function orderFor(date: string): MessageKey[] {
   return [OPENER, BANK[first], BANK[second], ...rest]
 }
 
+function normalizeHeading(s: string): string {
+  return s.trim().replace(/\s+/g, ' ').toLocaleLowerCase()
+}
+
 function hasHeading(body: string, heading: string): boolean {
-  return body.split('\n').some((line) => line.trim() === `## ${heading}`)
+  const target = normalizeHeading(heading)
+  return body.split('\n').some((line) => {
+    const trimmed = line.trim()
+    if (!trimmed.startsWith('##')) return false
+    return normalizeHeading(trimmed.replace(/^##\s*/, '')) === target
+  })
 }
 
 /**
@@ -85,6 +94,6 @@ function keepLineBreaks(text: string): string {
   return text.replace(/([^\n])\n(?=[^\n])/g, '$1  \n')
 }
 
-export function isBlank(entry: { body: string; mood?: number } | undefined): boolean {
-  return !entry || (entry.body.trim() === '' && entry.mood === undefined)
+export function isBlank(entry: { body: string; mood?: number | null } | undefined): boolean {
+  return !entry || (entry.body.trim() === '' && entry.mood == null)
 }

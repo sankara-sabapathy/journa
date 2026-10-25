@@ -62,9 +62,10 @@ async function readJson(response: Response): Promise<unknown> {
   const text = await response.text().catch(() => '')
   if (!text) return {}
   try {
-    return JSON.parse(text)
+    const parsed = JSON.parse(text)
+    return parsed && typeof parsed === 'object' ? parsed : {}
   } catch {
-    return null
+    return {}
   }
 }
 

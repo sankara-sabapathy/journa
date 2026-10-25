@@ -80,6 +80,7 @@ export function createCloudBackupTarget(deps: CloudBackupDeps): BackupTarget {
 }
 
 export function oldestBeyondKeep(names: string[], keep: number): string[] {
+  const k = Math.max(1, keep)
   const sorted = names.filter((name) => BACKUP_FILE_RE.test(name)).sort()
-  return sorted.slice(0, Math.max(0, sorted.length - keep))
+  return sorted.slice(0, Math.max(0, sorted.length - k))
 }

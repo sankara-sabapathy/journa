@@ -48,6 +48,7 @@ export function Interview({
   const moodRef = useRef(mood)
   const dirty = useRef(false)
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
+  const finished = useRef(false)
   const textRef = useRef<HTMLTextAreaElement>(null)
   const refocus = useRef(false)
   const questionId = useId()
@@ -74,6 +75,8 @@ export function Interview({
   }
 
   async function finish() {
+    if (finished.current) return
+    finished.current = true
     clearTimeout(timer.current)
     await flush()
     onFinish(current())
@@ -89,7 +92,9 @@ export function Interview({
 
   useEffect(() => {
     if (steps.length === 0) void finish()
-    return () => void flush()
+    return () => {
+      if (!finished.current) void flush()
+    }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {

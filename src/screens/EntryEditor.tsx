@@ -24,15 +24,23 @@ const Markdown = lazy(() => import('../components/Markdown'))
 function useAutosave(id: string, onFlush?: () => void) {
   const patch = useRef<Partial<Entry>>({})
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
+  const mounted = useRef(true)
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+    }
+  }, [])
   const flush = () => {
     const p = patch.current
     patch.current = {}
     return (Object.keys(p).length ? repo.update(id, p) : Promise.resolve()).then(() => {
-      if (Object.keys(p).length) onFlush?.()
+      if (Object.keys(p).length && mounted.current) onFlush?.()
     })
   }
   useEffect(
     () => () => {
+      mounted.current = false
       void flush().then(() => {
         // Only once the user has left this entry (StrictMode re-mounts in place).
         if (!location.hash.includes(id)) void repo.discardIfEmpty(id)
@@ -101,7 +109,8 @@ function Editor({ initial }: { initial: Entry }) {
   async function remove() {
     save({}, true)
     await repo.trash(initial.id)
-    history.back()
+    if (history.length > 1) history.back()
+    else navigate({ name: 'today' })
     toast(t('trash.moved'), { label: t('trash.undo'), run: () => void repo.restore(initial.id) })
   }
 

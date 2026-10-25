@@ -59,11 +59,25 @@ function JournalEditor({
   const bodyRef = useRef(doc.body)
   const moodRef = useRef<Mood | null>(doc.mood)
   const textRef = useRef<HTMLTextAreaElement>(null)
+  const mounted = useRef(true)
+  useEffect(() => {
+    if (dirty.current) return
+    if (doc.body !== bodyRef.current) {
+      setText(doc.body)
+      bodyRef.current = doc.body
+    }
+    if (doc.mood !== moodRef.current) {
+      setMood(doc.mood)
+      moodRef.current = doc.mood
+    }
+  }, [doc.body, doc.mood]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function flush() {
     if (!dirty.current) return
     dirty.current = false
-    if (await repo.saveJournal(date, bodyRef.current, moodRef.current)) setSaved(Date.now())
+    if (await repo.saveJournal(date, bodyRef.current, moodRef.current)) {
+      if (mounted.current) setSaved(Date.now())
+    }
   }
 
   function schedule() {
@@ -72,7 +86,13 @@ function JournalEditor({
     timer.current = setTimeout(() => void flush(), 500)
   }
 
-  useEffect(() => () => void flush(), []) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+      void flush()
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const isToday = date === toISODate()
   const canAsk = questionsFor(date, text, t, set?.questions).length > 0
@@ -145,6 +165,13 @@ function JournalCard({
   const [asking, setAsking] = useState(isBlank(entry))
   const [doc, setDoc] = useState<JournalDoc>({ body: entry?.body ?? '', mood: entry?.mood ?? null })
   const [savedAt, setSavedAt] = useState(entry?.updatedAt ?? null)
+  useEffect(() => {
+    // Re-evaluate mode when the entry changes externally (sync, another tab).
+    if (asking) return
+    setAsking(isBlank(entry))
+    setDoc({ body: entry?.body ?? '', mood: entry?.mood ?? null })
+    setSavedAt(entry?.updatedAt ?? null)
+  }, [entry?.updatedAt]) // eslint-disable-line react-hooks/exhaustive-deps
   return asking ? (
     <Interview
       date={date}

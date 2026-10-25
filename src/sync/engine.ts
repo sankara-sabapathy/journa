@@ -80,7 +80,8 @@ async function storedLastSyncAt(): Promise<number | null> {
   if (!row) return null
   const value = row.value as unknown
   if (typeof value !== 'object' || value === null || !('lastSyncAt' in value)) return null
-  return Number((value as { lastSyncAt: unknown }).lastSyncAt)
+  const raw = (value as { lastSyncAt: unknown }).lastSyncAt
+  return typeof raw === 'number' && Number.isFinite(raw) ? raw : null
 }
 
 async function putSettings(key: string, value: unknown) {
@@ -201,12 +202,15 @@ export async function signOut() {
   update({ status: 'signed-out' })
 }
 
+let syncInFlight = false
 export async function syncNow(): Promise<boolean> {
+  if (syncInFlight) return false
   if (state.status !== 'idle' && state.status !== 'error') return false
+  syncInFlight = true
   const credentials = await storedCredentials()
-  if (!credentials) return false
+  if (!credentials) { syncInFlight = false; return false }
   const baseUrl = apiBaseUrl()
-  if (!baseUrl) return false
+  if (!baseUrl) { syncInFlight = false; return false }
 
   let userId: UserId
   let email: string
@@ -243,6 +247,10 @@ export async function syncNow(): Promise<boolean> {
     const entries = await db.entries.toArray()
     const outboxRows = await db.outbox.toArray()
     const byId = new Map(entries.map((entry) => [entry.id, entry]))
+    // Drop outbox rows that point at entries which no longer exist, so they
+    // don't linger forever and keep the device appearing dirty.
+    const staleOutboxIds = outboxRows.filter((row) => !byId.has(row.id)).map((row) => row.id)
+    if (staleOutboxIds.length > 0) await db.outbox.bulkDelete(staleOutboxIds)
     const push: SyncItem[] = await Promise.all(
       outboxRows
         .map((row) => byId.get(row.id))
@@ -282,8 +290,8 @@ export async function syncNow(): Promise<boolean> {
 
       const json = await response.json()
       const parsed = syncResponseSchema.parse(json)
+      await applyPulledEntries(parsed.pull, dek)
       await putSettings(CURSOR_KEY, parsed.cursor)
-      await applyPulledEntries(entries, parsed.pull, dek)
       if (rounds === 0 && push.length > 0) await db.outbox.bulkDelete(push.map((item) => item.id))
       rounds += 1
       if (parsed.pull.length === 0 || rounds >= MAX_PULL_ROUNDS) break
@@ -300,11 +308,14 @@ export async function syncNow(): Promise<boolean> {
     if (code === 'error.deviceNotEnrolled' || code === 'error.approvalPending') {
       const retry = await enrollDevice('Journa device')
       if (retry.status !== 'waiting') {
+        syncInFlight = false
         return syncNow()
       }
     }
     update({ status: 'error', userId, email, lastSyncAt, error: code })
     return false
+  } finally {
+    syncInFlight = false
   }
 }
 
@@ -315,10 +326,10 @@ async function rememberedCursor(): Promise<number> {
 }
 
 async function applyPulledEntries(
-  localEntries: readonly Entry[],
   pulled: readonly SyncItem[],
   dek: Uint8Array<ArrayBuffer>,
 ): Promise<void> {
+  const localEntries = await db.entries.toArray()
   const localById = new Map(localEntries.map((entry) => [entry.id, entry]))
   const decrypted: Entry[] = []
   let skipped = 0
@@ -406,7 +417,7 @@ export async function resolveConflictKeepBoth(id: string): Promise<void> {
     tags: [...conflict.local.tags, 'conflict'],
     createdAt: now,
     updatedAt: now,
-    deletedAt: 0,
+    deletedAt: conflict.local.deletedAt,
   }
   await db.entries.add(copy)
   await db.outbox.put({ id: copy.id, updatedAt: now })

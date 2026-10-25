@@ -46,6 +46,7 @@ export async function encryptText(plaintext: string, passphrase: string): Promis
 export class WrongPassphraseError extends Error {}
 
 export async function decryptText(file: EncryptedBackup, passphrase: string): Promise<string> {
+  if (typeof file.kdf.iterations !== 'number' || file.kdf.iterations < 100_000) throw new WrongPassphraseError()
   const key = await deriveKey(passphrase, fromB64(file.kdf.salt), file.kdf.iterations)
   try {
     const plain = await crypto.subtle.decrypt(

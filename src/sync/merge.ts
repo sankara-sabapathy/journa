@@ -25,8 +25,8 @@ export function selectWinningEntries(localById: ReadonlyMap<string, Entry>, inco
     }
     if (remote.deletedAt < local.deletedAt) continue
 
-    const remoteKey = `${remote.title}\0${remote.body}\0${remote.mood ?? ''}`
-    const localKey = `${local.title}\0${local.body}\0${local.mood ?? ''}`
+    const remoteKey = `${remote.title}\0${remote.body}\0${remote.mood ?? ''}\0${(remote.tags ?? []).join(',')}\0${remote.pinned}\0${remote.done ?? ''}\0${JSON.stringify(remote.items ?? null)}`
+    const localKey = `${local.title}\0${local.body}\0${local.mood ?? ''}\0${(local.tags ?? []).join(',')}\0${local.pinned}\0${local.done ?? ''}\0${JSON.stringify(local.items ?? null)}`
     if (remoteKey > localKey) winners.push(remote)
   }
 
@@ -59,7 +59,14 @@ function classifyConflictReason(local: Entry, incoming: Entry): SyncConflictReas
   const deletedStateDiffers = local.deletedAt !== incoming.deletedAt
 
   if (deletedStateDiffers) return 'edit-after-delete'
-  const textChanged = local.title !== incoming.title || local.body !== incoming.body
-  if (textChanged) return 'concurrent-edit'
+  const contentChanged =
+    local.title !== incoming.title ||
+    local.body !== incoming.body ||
+    local.mood !== incoming.mood ||
+    JSON.stringify(local.tags) !== JSON.stringify(incoming.tags) ||
+    local.pinned !== incoming.pinned ||
+    local.done !== incoming.done ||
+    JSON.stringify(local.items) !== JSON.stringify(incoming.items)
+  if (contentChanged) return 'concurrent-edit'
   return null
 }

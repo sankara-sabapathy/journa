@@ -94,6 +94,7 @@ export const folderTarget: BackupTarget = {
 
 /** Backup names sort chronologically, so everything before the newest `keep` goes. */
 export function filesToDelete(names: string[], keep: number): string[] {
+  const k = Math.max(1, keep)
   const sorted = names.filter((n) => BACKUP_FILE_RE.test(n)).sort()
-  return sorted.slice(0, Math.max(0, sorted.length - keep))
+  return sorted.slice(0, Math.max(0, sorted.length - k))
 }

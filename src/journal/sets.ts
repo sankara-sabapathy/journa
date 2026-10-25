@@ -93,34 +93,42 @@ export function createSetsStore(database: JournaDB = defaultDb) {
         questions: parseQuestions(input.questions.join('\n')),
         updatedAt: Date.now(),
       }
-      const sets = await read()
-      await write([...sets.filter((s) => s.id !== set.id), set])
+      await database.transaction('rw', database.settings, async () => {
+        const sets = await read()
+        await write([...sets.filter((s) => s.id !== set.id), set])
+      })
       return set
     },
 
     async remove(id: string): Promise<void> {
-      await write((await read()).filter((s) => s.id !== id))
-      if ((await storedActive()) === id) await setActive(DEFAULT_SET_ID)
+      await database.transaction('rw', database.settings, async () => {
+        await write((await read()).filter((s) => s.id !== id))
+        if ((await storedActive()) === id) await setActive(DEFAULT_SET_ID)
+      })
     },
 
     /** Keeps the newer copy of each set, adds new ones, and adopts the chosen set if it still exists. */
     async merge(incoming: QuestionSet[], active?: string): Promise<void> {
-      const sets = await read()
-      for (const set of incoming) {
-        if (!isSet(set)) continue
-        const at = sets.findIndex((s) => s.id === set.id)
-        if (at === -1) sets.push(set)
-        else if (set.updatedAt > sets[at].updatedAt) sets[at] = set
-      }
-      await write(sets)
-      if (active && exists(sets, active)) await setActive(active)
+      await database.transaction('rw', database.settings, async () => {
+        const sets = await read()
+        for (const set of incoming) {
+          if (!isSet(set)) continue
+          const at = sets.findIndex((s) => s.id === set.id)
+          if (at === -1) sets.push(set)
+          else if (set.updatedAt > sets[at].updatedAt) sets[at] = set
+        }
+        await write(sets)
+        if (active && active !== DEFAULT_SET_ID && exists(sets, active)) await setActive(active)
+      })
     },
 
     /** Drops every local set for an incoming list, for a replace import. */
     async replaceAll(incoming: QuestionSet[], active?: string): Promise<void> {
-      const sets = incoming.filter(isSet)
-      await write(sets)
-      await setActive(active && exists(sets, active) ? active : DEFAULT_SET_ID)
+      await database.transaction('rw', database.settings, async () => {
+        const sets = incoming.filter(isSet)
+        await write(sets)
+        await setActive(active && exists(sets, active) ? active : DEFAULT_SET_ID)
+      })
     },
   }
 }

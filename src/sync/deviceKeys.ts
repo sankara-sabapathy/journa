@@ -62,7 +62,9 @@ export async function generateDeviceKeypair(): Promise<DeviceKeypair> {
 export async function randomDataKey(): Promise<Uint8Array<ArrayBuffer>> {
   const key = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt'])
   const jwk = await crypto.subtle.exportKey('jwk', key)
-  return fromB64Url(jwk.k ?? '')
+  const raw = fromB64Url(jwk.k ?? '')
+  if (raw.length !== 32) throw new Error('invalid-data-key')
+  return raw
 }
 
 async function wrappingKey(

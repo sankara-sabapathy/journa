@@ -57,6 +57,7 @@ function createScheduler() {
   const subs = new Set<() => void>()
   let debounce: ReturnType<typeof setTimeout> | undefined
   let interval: ReturnType<typeof setInterval> | undefined
+  let unsubscribeChange: (() => void) | undefined
 
   function set(patch: Partial<BackupState>) {
     state = { ...state, ...patch }
@@ -109,7 +110,7 @@ function createScheduler() {
       const last = (await db.settings.get(LAST_KEY))?.value as number | undefined
       set({ lastBackupAt: last ?? null })
       await this.refresh()
-      onChange(() => {
+      unsubscribeChange = onChange(() => {
         set({ dirty: true })
         clearTimeout(debounce)
         debounce = setTimeout(() => void maybeRun(), DEBOUNCE_MS)
@@ -122,6 +123,8 @@ function createScheduler() {
       clearTimeout(debounce)
       clearInterval(interval)
       document.removeEventListener('visibilitychange', onVisibility)
+      unsubscribeChange?.()
+      unsubscribeChange = undefined
     },
 
     async refresh() {

@@ -61,7 +61,7 @@ export async function importBackup(
   await database.transaction('rw', database.entries, database.settings, async () => {
     if (mode === 'replace') {
       await database.entries.clear()
-      await database.entries.bulkAdd(backup.entries)
+      await database.entries.bulkPut(backup.entries)
       result.added = backup.entries.length
     } else {
       const existing = await database.entries.bulkGet(backup.entries.map((e) => e.id))

@@ -14,7 +14,7 @@ export function onChange(fn: () => void): () => void {
 }
 
 function changed() {
-  for (const fn of listeners) fn()
+  for (const fn of [...listeners]) fn()
 }
 
 export function newId(): string {
@@ -29,12 +29,12 @@ export function makeEntry(input: NewEntry, now = Date.now()): Entry {
     id: input.type === 'journal' && date
       ? `journal-${date}`
       : newId(),
-    title: '',
-    body: '',
-    tags: [],
-    pinned: 0,
     ...input,
     type: input.type,
+    title: input.title ?? '',
+    body: input.body ?? '',
+    tags: input.tags ?? [],
+    pinned: input.pinned ?? 0,
     date,
     createdAt: now,
     updatedAt: now,
@@ -53,8 +53,10 @@ export function createRepo(database: JournaDB = db) {
   return {
     async create(input: NewEntry): Promise<Entry> {
       const entry = makeEntry(input)
-      await database.entries.add(entry)
-      await touchOutbox(entry.id, entry.updatedAt)
+      await database.transaction('rw', database.entries, database.outbox, async () => {
+        await database.entries.add(entry)
+        await touchOutbox(entry.id, entry.updatedAt)
+      })
       changed()
       return entry
     },
@@ -65,27 +67,38 @@ export function createRepo(database: JournaDB = db) {
 
     async update(id: string, patch: Partial<Omit<Entry, 'id' | 'createdAt'>>): Promise<void> {
       const updatedAt = Date.now()
-      await database.entries.update(id, { ...patch, updatedAt })
-      await touchOutbox(id, updatedAt)
+      await database.transaction('rw', database.entries, database.outbox, async () => {
+        await database.entries.update(id, { ...patch, updatedAt })
+        await touchOutbox(id, updatedAt)
+      })
       changed()
     },
 
     async trash(id: string): Promise<void> {
       const updatedAt = Date.now()
-      await database.entries.update(id, { deletedAt: updatedAt, updatedAt })
-      await touchOutbox(id, updatedAt)
+      await database.transaction('rw', database.entries, database.outbox, async () => {
+        await database.entries.update(id, { deletedAt: updatedAt, updatedAt })
+        await touchOutbox(id, updatedAt)
+      })
       changed()
     },
 
     async restore(id: string): Promise<void> {
       const updatedAt = Date.now()
-      await database.entries.update(id, { deletedAt: 0, updatedAt })
-      await touchOutbox(id, updatedAt)
+      await database.transaction('rw', database.entries, database.outbox, async () => {
+        await database.entries.update(id, { deletedAt: 0, updatedAt })
+        await touchOutbox(id, updatedAt)
+      })
       changed()
     },
 
     async emptyTrash(): Promise<number> {
-      const n = await database.entries.where('deletedAt').above(0).delete()
+      const ids = (await database.entries.where('deletedAt').above(0).toArray()).map((e) => e.id)
+      const n = await database.transaction('rw', database.entries, database.outbox, async () => {
+        const deleted = await database.entries.where('deletedAt').above(0).delete()
+        await database.outbox.bulkDelete(ids)
+        return deleted
+      })
       changed()
       return n
     },
@@ -127,12 +140,14 @@ export function createRepo(database: JournaDB = db) {
      * a null mood clears the face. Returns whether anything was written.
      */
     async saveJournal(date: string, body: string, mood: Mood | null): Promise<boolean> {
-      const existing = await this.journalFor(date)
-      if (!existing && !body.trim() && mood === null) return false
-      const entry = existing ?? (await this.ensureJournal(date))
-      // `mood: undefined` removes the field.
-      await this.update(entry.id, { body, mood: mood ?? undefined })
-      return true
+      return database.transaction('rw', database.entries, database.outbox, async () => {
+        const existing = await this.journalFor(date)
+        if (!existing && !body.trim() && mood === null) return false
+        const entry = existing ?? (await this.ensureJournal(date))
+        // `mood: undefined` removes the field.
+        await this.update(entry.id, { body, mood: mood ?? undefined })
+        return true
+      })
     },
 
     /** Days the user showed up: journal text, a mood check-in, or both. */
@@ -153,15 +168,22 @@ export function createRepo(database: JournaDB = db) {
     },
 
     async allTags(): Promise<string[]> {
-      const keys = await database.entries.orderBy('tags').uniqueKeys()
-      return keys.map(String).sort((a, b) => a.localeCompare(b))
+      const rows = await database.entries.where('deletedAt').equals(0).toArray()
+      const tags = new Set<string>()
+      for (const row of rows) {
+        for (const tag of row.tags ?? []) tags.add(tag)
+      }
+      return [...tags].sort((a, b) => a.localeCompare(b))
     },
 
     async discardIfEmpty(id: string): Promise<boolean> {
       const e = await database.entries.get(id)
       if (!e || e.type === 'journal') return false
       if (e.title.trim() || e.body.trim() || e.tags.length || e.items?.length || e.due) return false
-      await database.entries.delete(id)
+      await database.transaction('rw', database.entries, database.outbox, async () => {
+        await database.entries.delete(id)
+        await database.outbox.delete(id)
+      })
       changed()
       return true
     },
