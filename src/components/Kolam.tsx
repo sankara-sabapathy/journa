@@ -1,15 +1,11 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { ChevronDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react'
+import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react'
 import { IconButton } from './IconButton'
 import { useEffect, useMemo, useState } from 'react'
 import { href } from '../app/router'
 import { toISODate } from '../db/date'
 import { repo } from '../db/repo'
 import { useI18n } from '../i18n'
-
-const CELL = 40
-const ROW = 36
-const R = 12 // loop radius around a pulli dot
 
 /** One cell per day of the month, weeks as rows, Sunday first. */
 export function monthGrid(year: number, month: number) {
@@ -22,18 +18,17 @@ export function monthGrid(year: number, month: number) {
   })
 }
 
-/** A kolam petal: a loop drawn around the dot with four curved sides. */
-function loop(cx: number, cy: number) {
-  const k = R * 0.552
-  return `M${cx} ${cy - R}C${cx + k} ${cy - R} ${cx + R} ${cy - k} ${cx + R} ${cy}C${cx + R} ${cy + k} ${cx + k} ${cy + R} ${cx} ${cy + R}C${cx - k} ${cy + R} ${cx - R} ${cy + k} ${cx - R} ${cy}C${cx - R} ${cy - k} ${cx - k} ${cy - R} ${cx} ${cy - R}Z`
+/** How many blank cells lead the month (Sunday-first). */
+export function monthOffset(year: number, month: number): number {
+  return new Date(year, month, 1).getDay()
 }
 
-/** The line joining two consecutive written days: it leaves one loop and enters the next. */
-function join(x1: number, x2: number, cy: number) {
-  const a = x1 + R
-  const b = x2 - R
-  const m = (a + b) / 2
-  return `M${a} ${cy}C${m} ${cy - 10} ${m} ${cy + 10} ${b} ${cy}`
+function BorderMark({ className }: { className?: string }) {
+  return (
+    <svg className={className} aria-hidden focusable="false">
+      <circle cx="50%" cy="50%" r="46%" fill="none" stroke="currentColor" strokeWidth={1.6} />
+    </svg>
+  )
 }
 
 interface Props {
@@ -43,34 +38,26 @@ interface Props {
   onMonth: (delta: number) => void
   onYear: (delta: number) => void
   onPick: (year: number, month: number) => void
+  /** Called when a day is chosen, e.g. to close the surrounding sheet. */
+  onDatePicked?: () => void
+  /** Show the grid even on phones (no collapse toggle). */
+  forceExpanded?: boolean
 }
 
-export function Kolam({ year, month, selected, onMonth, onYear, onPick }: Props) {
+export function Kolam({ year, month, selected, onMonth, onYear, onPick, onDatePicked, forceExpanded = false }: Props) {
   const { t, fmt } = useI18n()
   const [picking, setPicking] = useState(false)
   const [collapsed, setCollapsed] = useState(() =>
-    typeof window !== 'undefined' && window.matchMedia('(max-width: 600px)').matches,
+    !forceExpanded && typeof window !== 'undefined' && window.matchMedia('(max-width: 600px)').matches,
   )
   const cells = useMemo(() => monthGrid(year, month), [year, month])
   const from = cells[0].date
   const to = cells[cells.length - 1].date
   const written = useLiveQuery(() => repo.writtenDays(from, to), [from, to]) ?? new Set<string>()
   const today = toISODate()
-  const rows = cells[cells.length - 1].row + 1
+  const offset = monthOffset(year, month)
   const monthName = fmt.date(new Date(year, month, 1), { month: 'long', year: 'numeric' })
   const weekdays = Array.from({ length: 7 }, (_, i) => fmt.date(new Date(2026, 1, 1 + i), { weekday: 'narrow' }))
-
-  const paths: string[] = []
-  for (const c of cells) {
-    if (!written.has(c.date)) continue
-    const cx = c.col * CELL + CELL / 2
-    const cy = c.row * ROW + ROW / 2
-    paths.push(loop(cx, cy))
-    const next = cells[c.day] // the following day
-    if (next && next.row === c.row && written.has(next.date)) {
-      paths.push(join(cx, cx + CELL, cy))
-    }
-  }
 
   const now = new Date()
   const thisYear = now.getFullYear()
@@ -130,17 +117,19 @@ export function Kolam({ year, month, selected, onMonth, onYear, onPick }: Props)
               >
                 <ChevronsRight aria-hidden />
               </IconButton>
+              {!forceExpanded && (
+                <IconButton
+                  label={collapsed ? t('kolam.showCalendar') : t('kolam.hideCalendar')}
+                  className="on-kaavi kolam-toggle"
+                  aria-expanded={!collapsed}
+                  onClick={() => setCollapsed((v) => !v)}
+                >
+                  <CalendarDays aria-hidden />
+                </IconButton>
+              )}
             </div>
           </div>
           <p className="kolam-count">{t('kolam.written', { count: written.size })}</p>
-          <button
-            type="button"
-            className="kolam-toggle"
-            aria-expanded={!collapsed}
-            onClick={() => setCollapsed((v) => !v)}
-          >
-            {collapsed ? t('kolam.showCalendar') : t('kolam.hideCalendar')}
-          </button>
         </div>
         {!collapsed && (
         <div className="kolam-grid">
@@ -149,57 +138,44 @@ export function Kolam({ year, month, selected, onMonth, onYear, onPick }: Props)
               <span key={i}>{w}</span>
             ))}
           </div>
-          <div className="kolam">
-            <svg viewBox={`0 0 ${CELL * 7} ${ROW * rows}`} aria-hidden>
-              {paths.map((d, i) => (
-                <path key={`${from}-${i}`} d={d} className="kolam-line drawn" pathLength={1} style={{ '--len': 1 } as React.CSSProperties} />
-              ))}
-              {cells.map((c) => {
-                const cx = c.col * CELL + CELL / 2
-                const cy = c.row * ROW + ROW / 2
-                const future = c.date > today
-                if (c.date === today)
-                  return <circle key={c.date} cx={cx} cy={cy} r={5} fill="var(--turmeric)" />
-                return <circle key={c.date} cx={cx} cy={cy} r={future ? 1.6 : 2.6} fill="var(--rice)" opacity={future ? 0.45 : 1} />
-              })}
-              {cells
-                .filter((c) => c.date === selected && c.date !== today)
-                .map((c) => (
-                  <circle
-                    key="sel"
-                    cx={c.col * CELL + CELL / 2}
-                    cy={c.row * ROW + ROW / 2}
-                    r={R + 2}
-                    fill="none"
-                    stroke="var(--turmeric)"
-                    strokeWidth={2}
-                  />
-                ))}
-            </svg>
-            <div className="kolam-cells" style={{ gridTemplateRows: `repeat(${rows}, 1fr)` }}>
-              {cells.map((c) => {
-                const label = fmt.date(new Date(year, month, c.day), { day: 'numeric', month: 'long' })
-                const future = c.date > today
-                const style = { gridColumn: c.col + 1, gridRow: c.row + 1 }
-                if (future) return <span key={c.date} style={style} aria-hidden />
+          <div className="kolam-days">
+            {Array.from({ length: offset }).map((_, i) => (
+              <span key={`blank-${i}`} className="kolam-day blank" aria-hidden />
+            ))}
+            {cells.map((c) => {
+              const future = c.date > today
+              const isToday = c.date === today
+              const isSelected = c.date === selected
+              const isWritten = written.has(c.date)
+              const label = fmt.date(new Date(year, month, c.day), { day: 'numeric', month: 'long', weekday: 'long' })
+              if (future) {
                 return (
-                  <a
-                    key={c.date}
-                    className="kolam-cell"
-                    style={style}
-                    href={href({ name: 'today', date: c.date === today ? undefined : c.date })}
-                    aria-current={c.date === selected ? 'date' : undefined}
-                    aria-label={
-                      (c.date === today ? `${t('kolam.today')}, ` : '') +
-                      t(written.has(c.date) ? 'kolam.day' : 'kolam.dayEmpty', { date: label })
-                    }
-                  />
+                  <span key={c.date} className="kolam-day future" aria-hidden>
+                    {c.day}
+                  </span>
                 )
-              })}
-            </div>
+              }
+              return (
+                <a
+                  key={c.date}
+                  className={`kolam-day${isToday ? ' today' : ''}${isSelected ? ' selected' : ''}${isWritten ? ' written' : ''}`}
+                  href={href({ name: 'today', date: isToday ? undefined : c.date })}
+                  onClick={() => onDatePicked?.()}
+                  aria-current={isSelected ? 'date' : undefined}
+                  aria-label={
+                    (isToday ? `${t('kolam.today')}, ` : '') +
+                    t(isWritten ? 'kolam.day' : 'kolam.dayEmpty', { date: label })
+                  }
+                >
+                  <span className="kolam-day-num">{c.day}</span>
+                  {isWritten && <BorderMark className="kolam-day-loop" />}
+                </a>
+              )
+            })}
           </div>
         </div>
         )}
+        {picking && <div className="kolam-scrim" onClick={() => setPicking(false)} aria-hidden />}
         {picking && (
           <div className="kolam-picker" role="group" aria-label={t('kolam.pick')}>
             <div className="kolam-picker-year">

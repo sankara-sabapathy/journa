@@ -7,10 +7,20 @@ type Props = Omit<ButtonProps, 'children' | 'aria-label'> & {
   children: ReactNode
   /** Render as a link instead of a button. */
   href?: string
+  /** Set false to keep the accessible name but skip the visual tooltip. */
+  tooltip?: boolean
 }
 
 /** Icon-only control with an accessible name and a CSS-only tooltip. */
-export function IconButton({ label, children, href, variant = 'ghost', size = 'icon-xl', ...props }: Props): ReactElement {
+export function IconButton({
+  label,
+  children,
+  href,
+  tooltip = true,
+  variant = 'ghost',
+  size = 'icon-xl',
+  ...props
+}: Props): ReactElement {
   const tipId = useId()
   return (
     <>
@@ -18,16 +28,18 @@ export function IconButton({ label, children, href, variant = 'ghost', size = 'i
         variant={variant}
         size={size}
         aria-label={label}
-        aria-describedby={tipId}
-        data-tip={label}
+        aria-describedby={tooltip ? tipId : undefined}
+        data-tip={tooltip ? label : undefined}
         render={href ? <a href={href} /> : undefined}
         {...props}
       >
         {children}
       </Button>
-      <span role="tooltip" id={tipId} className="sr-only">
-        {label}
-      </span>
+      {tooltip && (
+        <span role="tooltip" id={tipId} className="sr-only">
+          {label}
+        </span>
+      )}
     </>
   )
 }

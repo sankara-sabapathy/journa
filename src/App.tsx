@@ -1,4 +1,5 @@
 import { BookOpen, CalendarDays, CheckSquare, ListChecks, NotebookPen, Plus, Search as SearchIcon, Settings as SettingsIcon, StickyNote } from 'lucide-react'
+import { CalendarSheet } from './components/CalendarSheet'
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { href, navigate, useRoute, type Route } from './app/router'
 import { Toasts } from './app/toasts'
@@ -95,6 +96,7 @@ function Compose() {
         label={t('new.title')}
         variant="default"
         className="fab"
+        tooltip={false}
         aria-expanded={open}
         aria-controls={open ? 'compose-menu' : undefined}
         onClick={() => setOpen((o) => !o)}
@@ -111,11 +113,16 @@ export default function App() {
   const date = route.name === 'today' ? (route.date ?? toISODate()) : toISODate()
   const { title, sub } = titleFor(route, t, date, fmt)
   const mainRef = useRef<HTMLElement>(null)
+  const [calendarOpen, setCalendarOpen] = useState(false)
 
   useEffect(() => {
     document.title = title ? `${title} · Journa` : 'Journa'
     window.scrollTo(0, 0)
   }, [route.name, title])
+
+  useEffect(() => {
+    setCalendarOpen(false)
+  }, [route.name, date])
 
   // Move focus to the new page so screen readers announce the change.
   const firstRoute = useRef(true)
@@ -151,6 +158,17 @@ export default function App() {
             </div>
           )}
           <div className="topbar-actions">
+            {route.name === 'today' && (
+              <IconButton
+                label={t('calendar.title')}
+                className="on-kaavi calendar-trigger"
+                aria-haspopup="dialog"
+                aria-expanded={calendarOpen}
+                onClick={() => setCalendarOpen(true)}
+              >
+                <CalendarDays aria-hidden />
+              </IconButton>
+            )}
             <IconButton label={t('nav.search')} href={href({ name: 'search' })} className="on-kaavi">
               <SearchIcon aria-hidden />
             </IconButton>
@@ -187,6 +205,7 @@ export default function App() {
       </main>
 
       {route.name !== 'entry' && route.name !== 'settings' && <Compose />}
+      {calendarOpen && <CalendarSheet selected={date} onClose={() => setCalendarOpen(false)} />}
       <Toasts />
     </div>
   )

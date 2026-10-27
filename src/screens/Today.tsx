@@ -18,7 +18,8 @@ export function wordCount(s: string) {
   return s.trim() ? s.trim().split(/\s+/u).length : 0
 }
 
-export function TodayKolam({ date }: { date: string }) {
+/** The month grid that sits beside the day on wide screens; the header icon covers phones. */
+function TodayCalendar({ date }: { date: string }) {
   const d = fromISODate(date)
   const [ym, setYm] = useState({ y: d.getFullYear(), m: d.getMonth() })
   useEffect(() => setYm({ y: d.getFullYear(), m: d.getMonth() }), [date]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -27,6 +28,7 @@ export function TodayKolam({ date }: { date: string }) {
       year={ym.y}
       month={ym.m}
       selected={date}
+      forceExpanded
       onMonth={(delta) => {
         const n = new Date(ym.y, ym.m + delta, 1)
         setYm({ y: n.getFullYear(), m: n.getMonth() })
@@ -210,10 +212,10 @@ export function Today({ date }: { date: string }) {
   const shown = [...dueNow, ...tasks.filter((e) => e.done && e.updatedAt > fromISODate(today).getTime())].slice(0, 8)
 
   return (
-    <div className="today">
-      <div className="today-side">
-        <TodayKolam date={date} />
-      </div>
+    <div className="today-layout">
+      <aside className="today-side">
+        <TodayCalendar date={date} />
+      </aside>
       <div className="today-main">
       <section className="section" aria-labelledby="h-journal">
         <div className="section-head">

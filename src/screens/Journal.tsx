@@ -1,5 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { href } from '../app/router'
+import { href, navigate } from '../app/router'
 import { fromISODate } from '../db/date'
 import { repo } from '../db/repo'
 import { useI18n } from '../i18n'
@@ -37,7 +37,7 @@ export function Journal() {
           ))}
         </ul>
       ) : (
-        <Empty>{t('journal.empty')}</Empty>
+        <Empty action={{ label: t('journal.writeToday'), onClick: () => navigate({ name: 'today' }) }}>{t('journal.empty')}</Empty>
       )}
     </div>
   )

@@ -254,7 +254,8 @@ export const hi: Messages = {
   'settings.about': 'जानकारी',
   'settings.aboutText': 'Journa मुफ़्त है और सब कुछ इसी डिवाइस पर रखता है। अकाउंट की ज़रूरत नहीं, कोई ट्रैकिंग नहीं।',
 
-  'journal.empty': 'अभी कुछ नहीं लिखा। आज की प्रविष्टि Today स्क्रीन पर लिखें।',
+  'journal.empty': 'अभी कुछ नहीं लिखा। आपकी रोज़ की प्रविष्टि यहाँ से शुरू होती है।',
+  'journal.writeToday': 'आज की प्रविष्टि लिखें',
   'format.toolbar': 'फ़ॉर्मैटिंग',
   'format.bold': 'बोल्ड',
   'format.italic': 'इटैलिक',
@@ -280,6 +281,7 @@ export const hi: Messages = {
   'kolam.year': 'साल',
   'kolam.showCalendar': 'कैलेंडर दिखाएँ',
   'kolam.hideCalendar': 'कैलेंडर छुपाएँ',
+  'calendar.title': 'कैलेंडर',
   'pwa.installHint': 'Journa इंस्टॉल करें ताकि यह ऐप की तरह खुले और ब्राउज़र इसका डेटा सुरक्षित रखे।',
   'app.skip': 'सामग्री पर जाएँ',
   'nav.main': 'मुख्य',

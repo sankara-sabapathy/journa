@@ -32,9 +32,10 @@ export function BackupChip() {
     Icon = CloudCheck
     tone = 'ok'
   } else {
+    // Merely "not set up" stays quiet; only real failures raise attention.
     text = t('backup.chip.off')
     Icon = CloudOff
-    tone = s.status === 'unavailable' || s.status === 'not-configured' ? 'attention' : 'ok'
+    tone = 'ok'
   }
   return (
     <a className="chip" data-tone={tone} href={href({ name: 'settings' })}>

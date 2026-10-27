@@ -252,7 +252,8 @@ export const en = {
   'settings.about': 'About',
   'settings.aboutText': 'Journa is free and keeps everything on this device. No account needed, no tracking.',
 
-  'journal.empty': 'Nothing written yet. Write today’s entry on the Today screen.',
+  'journal.empty': 'Nothing written yet. Your daily entry starts here.',
+  'journal.writeToday': 'Write today’s entry',
   'format.toolbar': 'Formatting',
   'format.bold': 'Bold',
   'format.italic': 'Italic',
@@ -277,6 +278,7 @@ export const en = {
   'kolam.year': 'Year',
   'kolam.showCalendar': 'Show calendar',
   'kolam.hideCalendar': 'Hide calendar',
+  'calendar.title': 'Calendar',
   'pwa.installHint': 'Install Journa so it opens like an app and the browser keeps its data safe.',
   'app.skip': 'Skip to content',
   'nav.main': 'Main',

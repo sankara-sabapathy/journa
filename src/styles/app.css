@@ -188,6 +188,7 @@ dialog [data-slot='button'],
 /* One writing measure for every screen; Today widens for the month column. */
 .page {
   max-width: var(--writing-w);
+  margin-inline: auto;
 }
 .page-today {
   max-width: var(--writing-w);
@@ -285,6 +286,11 @@ dialog [data-slot='button'],
 .fab[aria-expanded='true'] {
   transform: rotate(45deg);
 }
+/* Stand the compose button down while the journal questions are open. */
+body.asking .fab,
+body.asking .compose-menu {
+  display: none;
+}
 .compose-menu {
   position: fixed;
   right: var(--s4);
@@ -365,22 +371,13 @@ dialog [data-slot='button'],
   font-size: var(--t-sm);
   color: rgb(251 248 242 / 0.82);
 }
-.kolam-toggle {
+/* The collapse toggle is a phone affordance; desktop always shows the grid. */
+.kolam-nav .kolam-toggle {
   display: none;
 }
 @media (max-width: 600px) {
-  .kolam-toggle {
+  .kolam-nav .kolam-toggle {
     display: inline-flex;
-    align-items: center;
-    min-height: 32px;
-    padding: 0 var(--s2);
-    border: 1px solid rgb(251 248 242 / 0.3);
-    border-radius: var(--r-sm);
-    background: transparent;
-    color: inherit;
-    font: inherit;
-    font-size: var(--t-xs);
-    cursor: pointer;
   }
 }
 .kolam-title-button {
@@ -398,6 +395,9 @@ dialog [data-slot='button'],
 .kolam-title-button:focus-visible {
   outline: 2px solid var(--turmeric);
   outline-offset: 2px;
+}
+.kolam-scrim {
+  display: none;
 }
 .kolam-picker {
   flex: 1 1 100%;
@@ -530,42 +530,117 @@ dialog [data-slot='button'],
     pointer-events: none;
   }
 }
-.kolam {
-  position: relative;
-  max-width: 360px;
-  margin-inline: auto;
-}
-.kolam-weekdays {
-  margin-inline: auto;
-}
-.kolam svg {
-  display: block;
-  width: 100%;
-  height: auto;
-}
-.kolam-cells {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-}
-.kolam-cell {
-  border: 0;
-  background: transparent;
-  border-radius: 50%;
-  padding: 0;
-}
-.kolam-cell:focus-visible {
-  outline-color: var(--turmeric);
-}
 .kolam-weekdays {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   max-width: 360px;
+  margin-inline: auto;
+  margin-bottom: var(--s1);
   font-size: var(--t-xs);
   text-align: center;
   color: rgb(251 248 242 / 0.75);
-  margin-bottom: var(--s1);
+}
+.kolam-days {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 2px;
+  max-width: 360px;
+  margin-inline: auto;
+}
+.kolam-day {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr;
+  place-items: center;
+  aspect-ratio: 1;
+  min-width: 0;
+  min-height: 40px;
+  border-radius: 50%;
+  color: var(--rice);
+  font-size: var(--t-sm);
+  font-variant-numeric: tabular-nums;
+  text-decoration: none;
+}
+.kolam-day:hover {
+  background: rgb(251 248 242 / 0.12);
+}
+.kolam-day:focus-visible {
+  outline: 2px solid var(--turmeric);
+  outline-offset: 2px;
+}
+.kolam-day.future {
+  opacity: 0.35;
+}
+.kolam-day.today {
+  background: var(--turmeric);
+  color: #1e1a18;
+  font-weight: 700;
+}
+.kolam-day.selected:not(.today) {
+  box-shadow: inset 0 0 0 2px var(--turmeric);
+}
+/* Written days wear one kolam loop; the number stays on top and readable. */
+.kolam-day-loop {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  color: var(--turmeric);
+  pointer-events: none;
+}
+.kolam-day.today .kolam-day-loop {
+  color: #1e1a18;
+}
+.kolam-day-num {
+  position: relative;
+  z-index: 1;
+}
+/* Calendar on demand: a centred card, a bottom sheet on phones. */
+.calendar-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: var(--s4);
+}
+.calendar-scrim {
+  position: absolute;
+  inset: 0;
+  background: rgb(0 0 0 / 0.5);
+}
+.calendar-sheet {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 460px);
+  max-height: 88vh;
+  overflow-y: auto;
+  border-radius: var(--r-md);
+  outline: none;
+}
+.calendar-sheet .kolam-band {
+  margin-inline: 0;
+  border-radius: var(--r-md);
+}
+.calendar-sheet .kolam-inner {
+  max-width: none;
+  align-items: stretch;
+}
+@media (max-width: 600px) {
+  .calendar-overlay {
+    padding: 0;
+    place-items: end center;
+  }
+  .calendar-sheet {
+    width: 100%;
+    max-height: 88vh;
+    border-radius: var(--r-md) var(--r-md) 0 0;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .calendar-sheet .kolam-band {
+    border-radius: var(--r-md) var(--r-md) 0 0;
+  }
 }
 /* Compact calendar on phones: smaller grid, tighter header-to-grid gap. */
 @media (max-width: 600px) {
@@ -575,6 +650,7 @@ dialog [data-slot='button'],
   .kolam-inner {
     gap: 0 var(--s3);
     flex-direction: column;
+    align-items: stretch;
   }
   .kolam-side {
     flex-basis: 100%;
@@ -585,34 +661,35 @@ dialog [data-slot='button'],
   .kolam-count {
     margin: 0 0 0;
   }
-  .kolam,
+  .kolam-grid {
+    flex: 0 0 auto;
+  }
+  .kolam-days,
   .kolam-weekdays {
     max-width: 315px;
     margin-top: var(--s1);
   }
-}
-.kolam-line {
-  fill: none;
-  stroke: var(--rice);
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-.kolam-line.drawn {
-  stroke-dasharray: var(--len);
-  stroke-dashoffset: var(--len);
-  animation: draw 900ms var(--ease-out) forwards;
-}
-@keyframes draw {
-  to {
-    stroke-dashoffset: 0;
+  /* The month picker becomes a bottom sheet instead of pushing the page down. */
+  .kolam-scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    background: rgb(0 0 0 / 0.45);
+  }
+  .kolam-picker {
+    position: fixed;
+    inset: auto 0 0 0;
+    z-index: 41;
+    margin: 0;
+    max-height: 72vh;
+    overflow-y: auto;
+    border-radius: var(--r-md) var(--r-md) 0 0;
+    padding-bottom: calc(var(--s4) + env(safe-area-inset-bottom));
+    background: var(--kaavi-deep);
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .kolam-line.drawn {
-    animation: none;
-    stroke-dashoffset: 0;
-  }
   .fab {
     transition: none;
   }
@@ -623,14 +700,17 @@ dialog [data-slot='button'],
 
 /* ---------- today ---------- */
 
-.today {
+.today-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: var(--s5);
 }
-.today-side,
 .today-main {
   max-width: var(--writing-w);
+}
+/* The month rail is a wide-screen companion; phones open it from the header icon. */
+.today-side {
+  display: none;
 }
 
 /* ---------- sections & lists ---------- */
@@ -887,16 +967,27 @@ dialog [data-slot='button'],
 }
 
 .empty {
-  padding: var(--s5) var(--s4);
+  display: grid;
+  justify-items: center;
+  gap: var(--s3);
+  padding: var(--s6) var(--s4);
+  margin: var(--s4) auto 0;
+  max-width: 34ch;
   color: var(--ink-2);
   font-size: var(--t-sm);
-  max-width: 48ch;
+  text-align: center;
 }
 .empty strong {
   display: block;
   color: var(--ink);
   font-size: var(--t-md);
-  margin-bottom: var(--s1);
+  margin-bottom: 0;
+}
+.empty-text {
+  margin: 0;
+}
+.empty .btn {
+  margin-top: var(--s1);
 }
 .not-found {
   display: grid;
@@ -1326,10 +1417,42 @@ select.input {
   padding: var(--s4);
   display: grid;
   gap: var(--s4);
+  scroll-margin-top: 52px;
 }
 .settings h2 {
   font-size: var(--t-lg);
   font-weight: 700;
+}
+.settings-jump {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  gap: var(--s2);
+  overflow-x: auto;
+  padding: var(--s2) 0;
+  margin-top: calc(-1 * var(--s2));
+  background: var(--ground);
+  scrollbar-width: none;
+}
+.settings-jump::-webkit-scrollbar {
+  display: none;
+}
+.jump {
+  flex: 0 0 auto;
+  min-height: 36px;
+  padding: 0 var(--s3);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  color: var(--ink-2);
+  font: inherit;
+  font-size: var(--t-sm);
+  cursor: pointer;
+}
+.jump:hover {
+  color: var(--ink);
+  background: var(--surface-2);
 }
 .set-questions {
   min-height: 8em;
@@ -1584,28 +1707,37 @@ dialog form {
   .kolam-inner {
     max-width: none;
   }
-  /* The compose button belongs to the writing column, not the window corner. */
+  /* The compose button and its menu share the window corner, so they stay aligned. */
   .fab.fab {
-    right: max(var(--gutter), calc(100vw - var(--rail-w) - var(--writing-w) - var(--gutter)));
+    right: var(--s5);
     bottom: var(--s5);
   }
 }
-@media (min-width: 1292px) {
+
+/* Wide screens: the month rail is always visible beside the day. */
+@media (min-width: 1200px) {
   .page-today {
     max-width: var(--group-w);
   }
-  .today {
+  .today-layout {
     grid-template-columns: minmax(0, 1fr) var(--month-w);
     column-gap: var(--group-gap);
     align-items: start;
   }
   .today-side {
+    display: block;
     grid-area: 1 / 2;
     max-width: none;
+    position: sticky;
+    top: var(--s2);
   }
   .today-main {
     grid-area: 1 / 1;
     max-width: none;
+  }
+  /* The month is already on screen, so the header trigger would be redundant. */
+  .topbar .calendar-trigger {
+    display: none;
   }
 }
 

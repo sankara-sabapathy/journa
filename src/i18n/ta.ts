@@ -254,7 +254,8 @@ export const ta: Messages = {
   'settings.about': 'பற்றி',
   'settings.aboutText': 'Journa இலவசம்; அனைத்தையும் இந்தச் சாதனத்திலேயே வைக்கிறது. கணக்கு தேவையில்லை, கண்காணிப்பு இல்லை.',
 
-  'journal.empty': 'இன்னும் எதுவும் எழுதப்படவில்லை. இன்றைய பதிவை Today திரையில் எழுதுக.',
+  'journal.empty': 'இன்னும் எதுவும் எழுதப்படவில்லை. உங்கள் தினசரி பதிவு இங்கே தொடங்குகிறது.',
+  'journal.writeToday': 'இன்றைய பதிவை எழுது',
   'format.toolbar': 'வடிவமைப்பு',
   'format.bold': 'தடித்த',
   'format.italic': 'சாய்வு',
@@ -280,6 +281,7 @@ export const ta: Messages = {
   'kolam.year': 'ஆண்டு',
   'kolam.showCalendar': 'நாட்காட்டியைக் காட்டு',
   'kolam.hideCalendar': 'நாட்காட்டியை மறை',
+  'calendar.title': 'நாட்காட்டி',
   'pwa.installHint': 'Journa-வை நிறுவுங்கள்: அது செயலிபோல் திறக்கும், உலாவியும் தரவைப் பாதுகாப்பாக வைக்கும்.',
   'app.skip': 'உள்ளடக்கத்துக்குச் செல்',
   'nav.main': 'முதன்மை',

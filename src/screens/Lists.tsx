@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { href } from '../app/router'
 import { toISODate } from '../db/date'
 import { repo } from '../db/repo'
-import { EntryRow, Empty, TaskRow } from '../components/EntryRows'
+import { createEntry, EntryRow, Empty, TaskRow } from '../components/EntryRows'
 import { Segmented } from '../components/Segmented'
 import { useI18n } from '../i18n'
 
@@ -33,7 +33,7 @@ export function Notes({ tag }: { tag?: string }) {
           ))}
         </ul>
       ) : (
-        <Empty>{t('notes.empty')}</Empty>
+        <Empty action={{ label: t('new.note'), onClick: () => void createEntry('note') }}>{t('notes.empty')}</Empty>
       )}
     </div>
   )
@@ -70,7 +70,7 @@ export function Tasks() {
           ))}
         </ul>
       ) : (
-        <Empty>{t(`tasks.empty.${filter}`)}</Empty>
+        <Empty action={{ label: t('new.task'), onClick: () => void createEntry('task') }}>{t(`tasks.empty.${filter}`)}</Empty>
       )}
     </div>
   )
@@ -86,6 +86,6 @@ export function Lists() {
       ))}
     </ul>
   ) : (
-    <Empty>{t('lists.empty')}</Empty>
+    <Empty action={{ label: t('new.checklist'), onClick: () => void createEntry('checklist') }}>{t('lists.empty')}</Empty>
   )
 }

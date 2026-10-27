@@ -1,12 +1,18 @@
-import { Pin } from 'lucide-react'
-import { href } from '../app/router'
+import { Pin, Plus } from 'lucide-react'
+import { href, navigate } from '../app/router'
 import { fromISODate, toISODate } from '../db/date'
 import { repo } from '../db/repo'
-import type { Entry } from '../db/types'
+import type { Entry, EntryType } from '../db/types'
 import { useI18n } from '../i18n'
 import { MoodMark } from './MoodPicker'
 import { ProgressKolam } from './ProgressKolam'
 import { TaskCheck } from './TaskCheck'
+
+/** Creates a new entry of the given type and opens it. */
+export async function createEntry(type: EntryType): Promise<void> {
+  const entry = await repo.create({ type })
+  navigate({ name: 'entry', id: entry.id })
+}
 
 export function useEntryTitle() {
   const { t, fmt } = useI18n()
@@ -96,11 +102,25 @@ export function EntryRow({ e, showType }: { e: Entry; showType?: boolean }) {
   )
 }
 
-export function Empty({ title, children }: { title?: string; children: React.ReactNode }) {
+export function Empty({
+  title,
+  children,
+  action,
+}: {
+  title?: string
+  children: React.ReactNode
+  action?: { label: string; onClick: () => void }
+}) {
   return (
     <div className="empty">
       {title && <strong>{title}</strong>}
-      {children}
+      <p className="empty-text">{children}</p>
+      {action && (
+        <button type="button" className="btn btn-primary" onClick={action.onClick}>
+          <Plus aria-hidden size={18} />
+          {action.label}
+        </button>
+      )}
     </div>
   )
 }

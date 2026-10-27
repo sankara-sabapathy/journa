@@ -18,6 +18,7 @@ import { chooseBackupFolder, folderBackupSupported } from '../backup/targets/fol
 import { useBackupState } from '../components/BackupChip'
 import { Segmented } from '../components/Segmented'
 import { LOCALES, useI18n, type Locale } from '../i18n'
+import type { MessageKey } from '../i18n/en'
 import { storageInfo } from '../pwa/persistStorage'
 import { DEFAULT_SET_ID, parseQuestions, setsStore, type QuestionSet } from '../journal/sets'
 import {
@@ -987,12 +988,34 @@ function QuestionsPanel() {
   )
 }
 
+const SECTIONS: readonly [string, MessageKey][] = [
+  ['h-account', 'account.title'],
+  ['h-backup', 'backup.title'],
+  ['h-data', 'data.title'],
+  ['h-storage', 'storage.title'],
+  ['h-questions', 'questions.title'],
+  ['h-look', 'settings.theme'],
+  ['h-about', 'settings.about'],
+]
+
 export function Settings() {
   const { t, locale, setLocale } = useI18n()
   const [theme, setTheme] = useTheme()
   const [accent, setAccent] = useAccent()
   return (
     <div className="settings">
+      <nav className="settings-jump" aria-label={t('nav.settings')}>
+        {SECTIONS.map(([id, key]) => (
+          <button
+            key={id}
+            type="button"
+            className="jump"
+            onClick={() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+          >
+            {t(key)}
+          </button>
+        ))}
+      </nav>
       <ConflictsPanel />
       <AccountPanel />
       <DevicesPanel />

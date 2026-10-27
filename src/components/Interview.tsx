@@ -91,6 +91,12 @@ export function Interview({
   }
 
   useEffect(() => {
+    // The compose button would sit over the question's actions; stand it down.
+    document.body.classList.add('asking')
+    return () => document.body.classList.remove('asking')
+  }, [])
+
+  useEffect(() => {
     if (steps.length === 0) void finish()
     return () => {
       if (!finished.current) void flush()
